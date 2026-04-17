@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>划词助手 · 设置</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --accent:       #5b6af0;
+      --accent-hover: #4554e8;
+      --accent-soft:  #eef0ff;
+      --bg:           #f9fafb;
+      --card-bg:      #ffffff;
+      --border:       #e5e7eb;
+      --text-primary: #111827;
+      --text-secondary: #6b7280;
+      --text-muted:   #9ca3af;
+      --success:      #16a34a;
+      --success-bg:   #f0fdf4;
+      --error:        #dc2626;
+      --error-bg:     #fef2f2;
+      --radius:       12px;
+      --font:         -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+                      'Microsoft YaHei', sans-serif;
+    }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text-primary);
+      min-height: 100vh;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 40px 16px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 520px;
+    }
+
+    /* ── 页头 ── */
+    .page-header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 28px;
+    }
+
+    .logo {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #5b6af0 0%, #7c3aed 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      flex-shrink: 0;
+    }
+
+    .page-title {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--text-primary);
+      line-height: 1.2;
+    }
+
+    .page-subtitle {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-top: 3px;
+    }
+
+    /* ── 卡片 ── */
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      margin-bottom: 16px;
+    }
+
+    .card-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .card-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* ── 表单项 ── */
+    .field {
+      margin-bottom: 20px;
+    }
+
+    .field:last-child {
+      margin-bottom: 0;
+    }
+
+    .field-label {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+
+    .field-label-text {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+
+    .field-badge {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--accent);
+      background: var(--accent-soft);
+      padding: 2px 7px;
+      border-radius: 5px;
+    }
+
+    .field-desc {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+      line-height: 1.5;
+    }
+
+    .input-wrap {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .field-input {
+      width: 100%;
+      padding: 9px 40px 9px 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 13px;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      color: var(--text-primary);
+      background: #fafafa;
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+
+    .field-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(91, 106, 240, 0.12);
+      background: #fff;
+    }
+
+    .field-input::placeholder {
+      color: var(--text-muted);
+      font-family: var(--font);
+      font-size: 13px;
+    }
+
+    /* 显示/隐藏切换按钮 */
+    .toggle-visibility {
+      position: absolute;
+      right: 10px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--text-muted);
+      padding: 4px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      transition: color 0.15s;
+    }
+
+    .toggle-visibility:hover {
+      color: var(--text-primary);
+    }
+
+    /* ── 操作按钮区 ── */
+    .actions {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      margin-top: 4px;
+    }
+
+    .btn-save {
+      padding: 10px 24px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      font-family: var(--font);
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s, box-shadow 0.15s;
+    }
+
+    .btn-save:hover {
+      background: var(--accent-hover);
+      box-shadow: 0 4px 12px rgba(91, 106, 240, 0.3);
+      transform: translateY(-1px);
+    }
+
+    .btn-save:active {
+      transform: translateY(0);
+      box-shadow: none;
+    }
+
+    .btn-save:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    /* ── 状态提示 ── */
+    #status-msg {
+      display: none;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      padding: 8px 14px;
+      border-radius: 8px;
+      line-height: 1.4;
+    }
+
+    #status-msg.visible { display: flex; }
+
+    #status-msg.success {
+      color: var(--success);
+      background: var(--success-bg);
+      border: 1px solid #bbf7d0;
+    }
+
+    #status-msg.error {
+      color: var(--error);
+      background: var(--error-bg);
+      border: 1px solid #fecaca;
+    }
+
+    /* ── 提示卡片 ── */
+    .tip-card {
+      background: var(--accent-soft);
+      border: 1px solid rgba(91, 106, 240, 0.2);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      font-size: 12.5px;
+      color: #4554e8;
+      line-height: 1.65;
+    }
+
+    .tip-card strong {
+      font-weight: 600;
+    }
+
+    .tip-card a {
+      color: var(--accent);
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+
+    /* ── 分割线 ── */
+    .divider {
+      height: 1px;
+      background: var(--border);
+      margin: 16px 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+
+    <!-- 页头 -->
+    <div class="page-header">
+      <div class="logo">
+        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+        </svg>
+      </div>
+      <div>
+        <div class="page-title">划词助手</div>
+        <div class="page-subtitle">配置 AI 模型的 API Key，开始智能划词查询</div>
+      </div>
+    </div>
+
+    <!-- DeepSeek 配置卡片 -->
+    <div class="card">
+      <div class="card-title">DeepSeek</div>
+
+      <div class="field">
+        <div class="field-label">
+          <span class="field-label-text">API Key</span>
+          <span class="field-badge">deepseek-chat</span>
+        </div>
+        <p class="field-desc">
+          前往 <a href="https://platform.deepseek.com/api_keys" target="_blank">platform.deepseek.com</a> 获取 API Key。
+        </p>
+        <div class="input-wrap">
+          <input
+            type="password"
+            id="deepseek-key"
+            class="field-input"
+            placeholder="sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <button class="toggle-visibility" data-target="deepseek-key" title="显示/隐藏">
+            <svg id="eye-deepseek" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                 fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 通义千问 配置卡片 -->
+    <div class="card">
+      <div class="card-title">通义千问</div>
+
+      <div class="field">
+        <div class="field-label">
+          <span class="field-label-text">API Key</span>
+          <span class="field-badge">qwen-plus</span>
+        </div>
+        <p class="field-desc">
+          前往 <a href="https://bailian.console.aliyun.com/" target="_blank">阿里云百炼平台</a> 获取 API Key。
+        </p>
+        <div class="input-wrap">
+          <input
+            type="password"
+            id="qwen-key"
+            class="field-input"
+            placeholder="sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <button class="toggle-visibility" data-target="qwen-key" title="显示/隐藏">
+            <svg id="eye-qwen" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                 fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 保存按钮 + 状态 -->
+    <div class="actions">
+      <button class="btn-save" id="btn-save">保存设置</button>
+      <div id="status-msg"></div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- 提示卡片 -->
+    <div class="tip-card">
+      <strong>🔒 安全说明：</strong>API Key 仅保存在本机的 <code>chrome.storage.local</code> 中，
+      不会上传至任何服务器。请勿将 API Key 分享给他人。
+    </div>
+
+  </div>
+
+  <script src="options.js"></script>
+</body>
+</html>
