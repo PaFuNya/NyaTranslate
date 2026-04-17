@@ -1,5 +1,5 @@
 /**
- * 划词助手 v2 — 内容脚本注入样式
+ * 划词助手 v3 — 内容脚本注入样式
  * 所有选择器使用 my-ext- 前缀，隔离宿主网页样式。
  * 面板内使用 CSS 自定义属性统一管理视觉 Token。
  */
@@ -107,35 +107,24 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   面板头部（预览文本 + 关闭按钮）
+   面板头部 v3 — 可拖拽区域，含 Logo / 标题 / 预览 / Pin / 关闭
    ═══════════════════════════════════════════════════════════════════════════ */
 .my-ext-panel-header {
   all: unset;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 10px 12px 8px;
+  height: 36px;
+  padding: 0 8px 0 10px;
   border-bottom: 1px solid var(--ext-border);
   box-sizing: border-box;
-  gap: 8px;
+  gap: 6px;
+  cursor: grab;
+  user-select: none;
+  background: linear-gradient(180deg, #fafbff 0%, var(--ext-bg) 100%);
+  flex-shrink: 0;
 }
 
-.my-ext-preview {
-  all: unset;
-  display: block;
-  font-size: 12px;
-  color: var(--ext-text-secondary);
-  font-family: var(--ext-font);
-  line-height: 1.5;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  flex: 1;
-  min-width: 0;
-  font-style: italic;
-}
-
-.my-ext-close-btn {
+.my-ext-panel-logo {
   all: unset;
   display: flex;
   align-items: center;
@@ -143,6 +132,51 @@
   width: 22px;
   height: 22px;
   border-radius: 6px;
+  background: linear-gradient(135deg, #5b6af0 0%, #7c3aed 100%);
+  color: #fff;
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+
+.my-ext-panel-title {
+  all: unset;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: var(--ext-font);
+  color: var(--ext-text-primary);
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
+}
+
+.my-ext-panel-spacer {
+  flex: 1;
+  min-width: 0;
+}
+
+.my-ext-preview {
+  all: unset;
+  display: block;
+  font-size: 11px;
+  color: var(--ext-text-secondary);
+  font-family: var(--ext-font);
+  line-height: 1.5;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100px;
+  font-style: italic;
+  flex-shrink: 1;
+}
+
+/* 通用小图标按钮（Pin / 关闭） */
+.my-ext-header-btn {
+  all: unset;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
   color: var(--ext-text-muted);
   cursor: pointer;
   flex-shrink: 0;
@@ -150,9 +184,18 @@
   box-sizing: border-box;
 }
 
-.my-ext-close-btn:hover {
-  background: #f3f4f6;
+.my-ext-header-btn:hover {
+  background: rgba(0, 0, 0, 0.07);
   color: var(--ext-text-primary);
+}
+
+.my-ext-header-btn--active {
+  color: var(--ext-accent) !important;
+  background: var(--ext-accent-soft) !important;
+}
+
+.my-ext-header-btn--active:hover {
+  background: #dde0fd !important;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

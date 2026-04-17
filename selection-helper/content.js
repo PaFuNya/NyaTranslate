@@ -1,409 +1,955 @@
 /**
- * Content Script — 划词助手 v2
+ * Content Script — 划词助手 v3
  *
- * 交互流程：
- *   1. mouseup → 检测选中文本 → 在光标右下角显示悬浮小图标
- *   2. 点击图标 → 图标消失，原地展开带 Tab 的悬浮面板
- *   3. 点击页面空白处 / 按 Esc / 滚动 → 关闭所有元素
+ * 架构：ES6 Class 模块化
+ *   ConfigManager     — 从 storage 加载全量配置
+ *   LanguageDetector  — 文本语种检测
+ *   InputBoxDetector  — 输入框/编辑器检测
+ *   TriggerEngine     — 根据场景+事件决策触发方式
+ *   DragController    — 面板拖拽
+ *   AccordionCard     — 单个模型折叠卡片
+ *   FloatingIcon      — 悬浮小图标
+ *   PanelManager      — 面板生命周期（Pin / 拖拽 / 堆叠卡片）
+ *   SelectionManager  — 全局事件监听与编排
+ *   ExtensionApp      — 根节点，组合所有模块
  */
 
 (function () {
   'use strict';
 
+  // 防止重复注入
+  if (window.__nyaSelectionHelperV3__) return;
+  window.__nyaSelectionHelperV3__ = true;
+
   const NS = 'my-ext';
 
-  // ─── 全局状态 ──────────────────────────────────────────────────────────────
-  const state = {
-    selectedText: '',
-    iconPos: { x: 0, y: 0 },
-    activeTab: 'deepseek',
-    // 每个 Tab 独立维护：{ status: 'idle'|'loading'|'result'|'error', action: string, content: string }
-    tabState: {
-      deepseek: { status: 'idle', action: null, content: '' },
-      qwen:     { status: 'idle', action: null, content: '' },
+  // ─── SVG 图标常量 ─────────────────────────────────────────────────────────
+
+  const SVG_PIN = `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V17z"/></svg>`;
+  const SVG_CLOSE = `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+  const SVG_CHAT = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
+  const SVG_CHEVRON = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>`;
+
+  // ─── 默认配置 ─────────────────────────────────────────────────────────────
+
+  const DEFAULT_CONFIG = {
+    disableInInputs:     true,
+    touchMode:           false,
+    languages: {
+      zh: true, en: true, ja: false,
+      ko: false, fr: false, es: false, de: false,
     },
-    mousedownOnWidget: false,
+    strictLanguageMatch: false,
+    triggerRules: {
+      normal: {
+        showIcon:       true,
+        directSearch:   false,
+        dblclickSearch: false,
+        modifiers:      [],
+        hoverSelect:    false,
+      },
+      pinned: {
+        showIcon:       false,
+        directSearch:   true,
+        dblclickSearch: false,
+        modifiers:      [],
+        hoverSelect:    false,
+      },
+      insidePanel: {
+        showIcon:       false,
+        directSearch:   true,
+        dblclickSearch: false,
+        modifiers:      [],
+        hoverSelect:    false,
+      },
+      standalone: {
+        showIcon:       false,
+        directSearch:   true,
+        dblclickSearch: false,
+        modifiers:      [],
+        hoverSelect:    false,
+      },
+    },
+    preferredAction: 'none',
   };
 
-  let iconEl = null;
-  let panelEl = null;
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  ConfigManager — 全量读取 storage，深度合并默认值
+  // ═══════════════════════════════════════════════════════════════════════════
 
-  // ─── 工具函数 ──────────────────────────────────────────────────────────────
+  class ConfigManager {
+    constructor() {
+      this.data = this._clone(DEFAULT_CONFIG);
+    }
 
-  function truncate(text, len = 50) {
-    return text.length > len ? text.slice(0, len) + '…' : text;
+    load() {
+      return new Promise((resolve) => {
+        chrome.storage.local.get(null, (stored) => {
+          this.data = this._deepMerge(DEFAULT_CONFIG, stored || {});
+          resolve(this.data);
+        });
+      });
+    }
+
+    /** 读取嵌套路径，如 'triggerRules.normal.showIcon' */
+    get(path) {
+      return path.split('.').reduce((o, k) => o?.[k], this.data);
+    }
+
+    _deepMerge(defaults, overrides) {
+      const out = { ...defaults };
+      for (const k of Object.keys(overrides)) {
+        if (
+          k in defaults &&
+          defaults[k] !== null &&
+          typeof defaults[k] === 'object' &&
+          !Array.isArray(defaults[k])
+        ) {
+          out[k] = this._deepMerge(defaults[k], overrides[k] ?? {});
+        } else {
+          out[k] = overrides[k];
+        }
+      }
+      return out;
+    }
+
+    _clone(obj) {
+      return JSON.parse(JSON.stringify(obj));
+    }
   }
 
-  function resetTabState() {
-    state.tabState = {
-      deepseek: { status: 'idle', action: null, content: '' },
-      qwen:     { status: 'idle', action: null, content: '' },
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  LanguageDetector — 通过正则匹配判断文本语种
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  class LanguageDetector {
+    static PATTERNS = {
+      zh: /[\u4e00-\u9fff\u3400-\u4dbf]/,
+      en: /[a-zA-Z]/,
+      ja: /[\u3040-\u30ff\u31f0-\u31ff\uff65-\uff9f]/,
+      ko: /[\uac00-\ud7af\u1100-\u11ff]/,
+      fr: /[àâäéèêëîïôùûüÿæœç]/i,
+      es: /[áéíóúüñ¿¡]/i,
+      de: /[äöüß]/i,
     };
-    state.activeTab = 'deepseek';
+
+    static detect(text) {
+      return Object.entries(this.PATTERNS)
+        .filter(([, re]) => re.test(text))
+        .map(([lang]) => lang);
+    }
+
+    /**
+     * @param {string}  text
+     * @param {object}  langConfig  { zh: true, en: true, ... }
+     * @param {boolean} strict      true = 所有检测到的语种都必须在启用列表中
+     */
+    static matches(text, langConfig, strict) {
+      const enabled = Object.keys(langConfig).filter((k) => langConfig[k]);
+      if (enabled.length === 0) return true;          // 无过滤规则，放行
+
+      const detected = this.detect(text);
+      if (detected.length === 0) return true;          // 未知字符集，放行
+
+      return strict
+        ? detected.every((l) => enabled.includes(l))  // 严格：全部匹配
+        : detected.some((l) => enabled.includes(l));   // 宽松：任一匹配
+    }
   }
 
-  /** 销毁图标与面板，重置状态 */
-  function cleanup() {
-    if (iconEl)  { iconEl.remove();  iconEl  = null; }
-    if (panelEl) { panelEl.remove(); panelEl = null; }
-    resetTabState();
-  }
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  InputBoxDetector — 检测目标元素是否处于输入框/代码编辑器内
+  // ═══════════════════════════════════════════════════════════════════════════
 
-  /** 将图标限制在视口内 */
-  function clampIcon(x, y, w = 36, h = 36) {
-    const vw = document.documentElement.clientWidth;
-    const vh = window.innerHeight;
-    const sx = window.scrollX, sy = window.scrollY;
-    return {
-      left: Math.min(Math.max(x, sx + 8), sx + vw - w - 8),
-      top:  Math.min(Math.max(y, sy + 8), sy + vh - h - 8),
-    };
-  }
-
-  /** 将面板限制在视口内 */
-  function clampPanel(x, y, w = 360, h = 320) {
-    const vw = document.documentElement.clientWidth;
-    const vh = window.innerHeight;
-    const sx = window.scrollX, sy = window.scrollY;
-    let left = x;
-    let top  = y + 8;
-    if (left + w > sx + vw - 8) left = sx + vw - w - 8;
-    if (left < sx + 8)          left = sx + 8;
-    if (top  + h > sy + vh - 8) top  = y - h - 8;
-    if (top  < sy + 8)          top  = sy + 8;
-    return { left, top };
-  }
-
-  // ─── 第一步：显示悬浮小图标 ────────────────────────────────────────────────
-
-  function showIcon(x, y) {
-    if (iconEl) { iconEl.remove(); iconEl = null; }
-
-    state.iconPos = { x, y };
-
-    iconEl = document.createElement('div');
-    iconEl.id        = `${NS}-icon`;
-    iconEl.className = `${NS}-icon`;
-    iconEl.title     = '点击查询（翻译 / 解释）';
-
-    // 内部 SVG：气泡 + 笔形图标
-    iconEl.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
-
-    const { left, top } = clampIcon(x + 12, y + 12);
-    iconEl.style.left = `${left}px`;
-    iconEl.style.top  = `${top}px`;
-
-    iconEl.addEventListener('click', (e) => {
-      e.stopPropagation();
-      openPanel();
-    });
-
-    document.body.appendChild(iconEl);
-    // 触发入场动画
-    requestAnimationFrame(() => iconEl?.classList.add(`${NS}-icon--visible`));
-  }
-
-  // ─── 第二步：点击图标，展开面板 ────────────────────────────────────────────
-
-  function openPanel() {
-    if (iconEl) { iconEl.remove(); iconEl = null; }
-    if (panelEl) { panelEl.remove(); panelEl = null; }
-
-    panelEl = buildPanel();
-
-    const { left, top } = clampPanel(state.iconPos.x, state.iconPos.y);
-    panelEl.style.left = `${left}px`;
-    panelEl.style.top  = `${top}px`;
-
-    document.body.appendChild(panelEl);
-    requestAnimationFrame(() => panelEl?.classList.add(`${NS}-panel--visible`));
-  }
-
-  // ─── 面板 DOM 构造 ─────────────────────────────────────────────────────────
-
-  function buildPanel() {
-    const panel = document.createElement('div');
-    panel.id        = `${NS}-panel`;
-    panel.className = `${NS}-panel`;
-
-    // 顶部：选中文本预览 + 关闭按钮
-    const header = document.createElement('div');
-    header.className = `${NS}-panel-header`;
-
-    const preview = document.createElement('span');
-    preview.className = `${NS}-preview`;
-    preview.textContent = `"${truncate(state.selectedText)}"`;
-
-    const btnClose = document.createElement('button');
-    btnClose.className = `${NS}-close-btn`;
-    btnClose.title = '关闭';
-    btnClose.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
-    btnClose.addEventListener('click', (e) => { e.stopPropagation(); cleanup(); });
-
-    header.appendChild(preview);
-    header.appendChild(btnClose);
-
-    // Tab 栏
-    const tabBar = document.createElement('div');
-    tabBar.className = `${NS}-tabbar`;
-
-    const TABS = [
-      { id: 'deepseek', label: 'DeepSeek', badge: 'R1' },
-      { id: 'qwen',     label: '通义千问', badge: 'Plus' },
+  class InputBoxDetector {
+    static EDITOR_CLASSES = [
+      'CodeMirror', 'ace_editor', 'monaco-editor',
+      'cm-editor', 'ProseMirror', 'ql-editor', 'tox-edit-area',
     ];
 
-    TABS.forEach(({ id, label, badge }) => {
-      const tab = document.createElement('button');
-      tab.className   = `${NS}-tab${state.activeTab === id ? ` ${NS}-tab--active` : ''}`;
-      tab.dataset.tab = id;
+    static isInside(element) {
+      if (!element) return false;
+      const tag = element.tagName?.toLowerCase();
+      if (['input', 'textarea', 'select'].includes(tag)) return true;
+      if (element.isContentEditable) return true;
 
-      const labelSpan = document.createElement('span');
-      labelSpan.textContent = label;
-
-      const badgeSpan = document.createElement('span');
-      badgeSpan.className = `${NS}-tab-badge`;
-      badgeSpan.textContent = badge;
-
-      tab.appendChild(labelSpan);
-      tab.appendChild(badgeSpan);
-      tab.addEventListener('click', (e) => { e.stopPropagation(); switchTab(id); });
-      tabBar.appendChild(tab);
-    });
-
-    // 内容区
-    const content = document.createElement('div');
-    content.className = `${NS}-content`;
-    content.id        = `${NS}-content`;
-
-    panel.appendChild(header);
-    panel.appendChild(tabBar);
-    panel.appendChild(content);
-
-    renderTabContent(content, state.activeTab);
-
-    return panel;
+      let el = element;
+      while (el && el !== document.body) {
+        if (el.classList) {
+          for (const cls of this.EDITOR_CLASSES) {
+            if (el.classList.contains(cls)) return true;
+          }
+        }
+        el = el.parentElement;
+      }
+      return false;
+    }
   }
 
-  // ─── Tab 切换 ──────────────────────────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  TriggerEngine — 根据场景和事件决定触发方式
+  // ═══════════════════════════════════════════════════════════════════════════
 
-  function switchTab(tabId) {
-    if (state.activeTab === tabId) return;
-    state.activeTab = tabId;
-
-    if (!panelEl) return;
-
-    panelEl.querySelectorAll(`.${NS}-tab`).forEach((tab) => {
-      tab.classList.toggle(`${NS}-tab--active`, tab.dataset.tab === tabId);
-    });
-
-    const contentEl = panelEl.querySelector(`#${NS}-content`);
-    if (contentEl) renderTabContent(contentEl, tabId);
-  }
-
-  // ─── 内容区渲染（状态机）──────────────────────────────────────────────────
-
-  function renderTabContent(container, tabId) {
-    container.innerHTML = '';
-    const ts = state.tabState[tabId];
-    const modelName = tabId === 'deepseek' ? 'DeepSeek' : '通义千问';
-
-    // ── idle：展示操作按钮 ──
-    if (ts.status === 'idle') {
-      const actions = document.createElement('div');
-      actions.className = `${NS}-actions`;
-
-      const btnTranslate = makeActionBtn('🌐 翻译', () => triggerFetch(tabId, 'translate'));
-      const btnExplain   = makeActionBtn('📖 解释术语', () => triggerFetch(tabId, 'explain'));
-
-      actions.appendChild(btnTranslate);
-      actions.appendChild(btnExplain);
-      container.appendChild(actions);
-
-      const hint = document.createElement('p');
-      hint.className = `${NS}-hint`;
-      hint.textContent = `选择操作，由 ${modelName} 为你解答`;
-      container.appendChild(hint);
+  class TriggerEngine {
+    constructor(config) {
+      this.config = config;
     }
 
-    // ── loading：旋转动画 ──
-    else if (ts.status === 'loading') {
-      const loader = document.createElement('div');
-      loader.className = `${NS}-loading`;
+    /**
+     * @param {'normal'|'pinned'|'insidePanel'|'standalone'} scenario
+     * @param {MouseEvent} event
+     * @param {boolean}    isDblClick
+     * @returns {'icon'|'direct'|'off'}
+     */
+    evaluate(scenario, event, isDblClick = false) {
+      const rules = this.config.get(`triggerRules.${scenario}`);
+      if (!rules) return 'off';
 
-      const spinner = document.createElement('div');
-      spinner.className = `${NS}-spinner`;
+      // 优先级 1：双击搜索
+      if (isDblClick && rules.dblclickSearch) return 'direct';
 
-      const txt = document.createElement('span');
-      txt.className = `${NS}-loading-text`;
-      txt.textContent = `${modelName} 正在思考中…`;
-
-      const dotsWrap = document.createElement('div');
-      dotsWrap.className = `${NS}-dots`;
-      for (let i = 0; i < 3; i++) {
-        const dot = document.createElement('span');
-        dot.className = `${NS}-dot`;
-        dotsWrap.appendChild(dot);
+      // 优先级 2：组合键触发 → 强制 direct
+      if (rules.modifiers?.length > 0) {
+        const hit = rules.modifiers.some((mod) => {
+          if (mod === 'ctrl')  return event.ctrlKey;
+          if (mod === 'alt')   return event.altKey;
+          if (mod === 'shift') return event.shiftKey;
+          if (mod === 'meta')  return event.metaKey;
+          return false;
+        });
+        if (hit) return 'direct';
       }
 
-      loader.appendChild(spinner);
-      loader.appendChild(txt);
-      loader.appendChild(dotsWrap);
-      container.appendChild(loader);
-    }
-
-    // ── result：展示结果 ──
-    else if (ts.status === 'result') {
-      const resultHeader = document.createElement('div');
-      resultHeader.className = `${NS}-result-header`;
-      resultHeader.textContent = ts.action === 'translate' ? '🌐 翻译结果' : '📖 术语解释';
-
-      const body = document.createElement('div');
-      body.className = `${NS}-result-body`;
-      body.textContent = ts.content;
-
-      const footer = document.createElement('div');
-      footer.className = `${NS}-result-footer`;
-
-      const otherAction = ts.action === 'translate' ? 'explain' : 'translate';
-      const otherLabel  = otherAction === 'translate' ? '🌐 翻译' : '📖 解释术语';
-
-      const btnSwitch = makeActionBtn(otherLabel, () => triggerFetch(tabId, otherAction), true);
-      const btnCopy   = makeCopyBtn(ts.content);
-
-      footer.appendChild(btnSwitch);
-      footer.appendChild(btnCopy);
-
-      container.appendChild(resultHeader);
-      container.appendChild(body);
-      container.appendChild(footer);
-    }
-
-    // ── error：展示错误 ──
-    else if (ts.status === 'error') {
-      const errEl = document.createElement('div');
-      errEl.className = `${NS}-error`;
-      errEl.textContent = `⚠️ ${ts.content}`;
-
-      const btnRetry = makeActionBtn('🔄 重试', () => triggerFetch(tabId, ts.action || 'translate'), true);
-      btnRetry.style.marginTop = '10px';
-
-      container.appendChild(errEl);
-      container.appendChild(btnRetry);
+      // 优先级 3：基础模式
+      if (rules.directSearch) return 'direct';
+      if (rules.showIcon)     return 'icon';
+      return 'off';
     }
   }
 
-  // ─── 按钮工厂函数 ──────────────────────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  DragController — 鼠标拖拽面板
+  // ═══════════════════════════════════════════════════════════════════════════
 
-  function makeActionBtn(label, onClick, ghost = false) {
-    const btn = document.createElement('button');
-    btn.className = `${NS}-btn${ghost ? ` ${NS}-btn--ghost` : ''}`;
-    btn.textContent = label;
-    btn.addEventListener('click', (e) => { e.stopPropagation(); onClick(); });
-    return btn;
-  }
+  class DragController {
+    constructor(panelEl, handleEl) {
+      this._panel  = panelEl;
+      this._handle = handleEl;
+      this._active = false;
+      this._ox = 0; this._oy = 0;
+      this._pl = 0; this._pt = 0;
 
-  function makeCopyBtn(text) {
-    const btn = document.createElement('button');
-    btn.className = `${NS}-btn ${NS}-btn--ghost`;
-    btn.textContent = '📋 复制';
-    btn.addEventListener('click', (e) => {
+      this._down = this._down.bind(this);
+      this._move = this._move.bind(this);
+      this._up   = this._up.bind(this);
+
+      handleEl.addEventListener('mousedown', this._down);
+      handleEl.style.cursor = 'grab';
+    }
+
+    _down(e) {
+      if (e.button !== 0) return;
+      if (e.target.closest('button')) return; // 点击按钮不触发拖拽
+      e.preventDefault();
       e.stopPropagation();
-      navigator.clipboard.writeText(text).then(() => {
-        btn.textContent = '✅ 已复制';
-        setTimeout(() => { btn.textContent = '📋 复制'; }, 1500);
-      }).catch(() => {
-        btn.textContent = '❌ 失败';
-        setTimeout(() => { btn.textContent = '📋 复制'; }, 1500);
+
+      this._active = true;
+      this._ox = e.clientX;
+      this._oy = e.clientY;
+      this._pl = parseInt(this._panel.style.left, 10) || 0;
+      this._pt = parseInt(this._panel.style.top,  10) || 0;
+
+      document.addEventListener('mousemove', this._move);
+      document.addEventListener('mouseup',   this._up);
+      this._handle.style.cursor = 'grabbing';
+      this._panel.style.transition = 'none'; // 拖拽时禁用入场动画
+    }
+
+    _move(e) {
+      if (!this._active) return;
+      const dx  = e.clientX - this._ox;
+      const dy  = e.clientY - this._oy;
+      const pw  = this._panel.offsetWidth;
+      const ph  = this._panel.offsetHeight;
+      const sx  = window.scrollX, sy = window.scrollY;
+      const vw  = window.innerWidth, vh = window.innerHeight;
+
+      const left = Math.max(sx + 8, Math.min(this._pl + dx, sx + vw - pw - 8));
+      const top  = Math.max(sy + 8, Math.min(this._pt + dy, sy + vh - ph - 8));
+
+      this._panel.style.left = `${left}px`;
+      this._panel.style.top  = `${top}px`;
+    }
+
+    _up() {
+      if (!this._active) return;
+      this._active = false;
+      document.removeEventListener('mousemove', this._move);
+      document.removeEventListener('mouseup',   this._up);
+      this._handle.style.cursor = 'grab';
+      this._panel.style.transition = '';
+    }
+
+    destroy() {
+      this._handle.removeEventListener('mousedown', this._down);
+      document.removeEventListener('mousemove', this._move);
+      document.removeEventListener('mouseup',   this._up);
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  AccordionCard — 单个模型的折叠展示卡片
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  class AccordionCard {
+    /**
+     * @param {string} modelId    'deepseek' | 'qwen'
+     * @param {string} modelLabel 显示名称
+     */
+    constructor(modelId, modelLabel) {
+      this.modelId = modelId;
+      this.label   = modelLabel;
+      this.state   = { status: 'idle', action: null, content: '' };
+      this.onFetch = null; // (modelId, action) => void  —— 由 PanelManager 注入
+
+      this._open    = true;
+      this._body    = null;
+      this._dot     = null;
+      this._chevron = null;
+      this.el       = null;
+
+      this._build();
+    }
+
+    // ── 构建 DOM ──────────────────────────────────────────────────────────
+
+    _build() {
+      this.el = document.createElement('div');
+      this.el.className = `${NS}-accordion`;
+
+      // 卡片头部（点击折叠/展开）
+      const hdr = document.createElement('div');
+      hdr.className = `${NS}-accordion-header`;
+
+      const titleWrap = document.createElement('div');
+      titleWrap.className = `${NS}-accordion-title`;
+
+      const badge = document.createElement('span');
+      badge.className = `${NS}-accordion-badge ${NS}-accordion-badge--${this.modelId}`;
+      badge.textContent = this.label;
+
+      this._dot = document.createElement('span');
+      this._dot.className = `${NS}-accordion-dot`;
+
+      titleWrap.appendChild(badge);
+      titleWrap.appendChild(this._dot);
+
+      this._chevron = document.createElement('span');
+      this._chevron.className = `${NS}-accordion-chevron ${NS}-accordion-chevron--up`;
+      this._chevron.innerHTML = SVG_CHEVRON;
+
+      hdr.appendChild(titleWrap);
+      hdr.appendChild(this._chevron);
+      hdr.addEventListener('click', () => this._toggle());
+
+      // 卡片主体（动画展开/折叠）
+      this._body = document.createElement('div');
+      this._body.className = `${NS}-accordion-body ${NS}-accordion-body--open`;
+
+      this.el.appendChild(hdr);
+      this.el.appendChild(this._body);
+
+      this._renderBody();
+    }
+
+    _toggle() {
+      this._open = !this._open;
+      this._body.classList.toggle(`${NS}-accordion-body--open`, this._open);
+      this._chevron.classList.toggle(`${NS}-accordion-chevron--up`, this._open);
+    }
+
+    forceOpen() {
+      this._open = true;
+      this._body.classList.add(`${NS}-accordion-body--open`);
+      this._chevron.classList.add(`${NS}-accordion-chevron--up`);
+    }
+
+    // ── 状态更新 ──────────────────────────────────────────────────────────
+
+    setLoading(action) {
+      this.state = { status: 'loading', action, content: '' };
+      this._setDot('loading');
+      this.forceOpen();
+      this._renderBody();
+    }
+
+    setResult(action, content) {
+      this.state = { status: 'result', action, content };
+      this._setDot('success');
+      this._renderBody();
+    }
+
+    setError(action, error) {
+      this.state = { status: 'error', action, content: error };
+      this._setDot('error');
+      this._renderBody();
+    }
+
+    reset() {
+      this.state = { status: 'idle', action: null, content: '' };
+      this._setDot('');
+      this._renderBody();
+    }
+
+    _setDot(variant) {
+      this._dot.className = `${NS}-accordion-dot${variant ? ` ${NS}-accordion-dot--${variant}` : ''}`;
+    }
+
+    // ── 内容区状态机渲染 ──────────────────────────────────────────────────
+
+    _renderBody() {
+      this._body.innerHTML = '';
+      const { status, action, content } = this.state;
+
+      if (status === 'idle') {
+        const hint = document.createElement('p');
+        hint.className   = `${NS}-hint`;
+        hint.textContent = `点击上方按钮，由 ${this.label} 为你解答`;
+        this._body.appendChild(hint);
+
+      } else if (status === 'loading') {
+        const loader  = document.createElement('div');
+        loader.className = `${NS}-loading`;
+
+        const spinner = document.createElement('div');
+        spinner.className = `${NS}-spinner`;
+
+        const txt = document.createElement('span');
+        txt.className   = `${NS}-loading-text`;
+        txt.textContent = `${this.label} 正在思考中…`;
+
+        const dots = document.createElement('div');
+        dots.className = `${NS}-dots`;
+        for (let i = 0; i < 3; i++) {
+          const d = document.createElement('span');
+          d.className = `${NS}-dot`;
+          dots.appendChild(d);
+        }
+
+        loader.appendChild(spinner);
+        loader.appendChild(txt);
+        loader.appendChild(dots);
+        this._body.appendChild(loader);
+
+      } else if (status === 'result') {
+        const rHdr = document.createElement('div');
+        rHdr.className   = `${NS}-result-header`;
+        rHdr.textContent = action === 'translate' ? '🌐 翻译结果' : '📖 术语解释';
+
+        const rBody = document.createElement('div');
+        rBody.className   = `${NS}-result-body`;
+        rBody.textContent = content;
+
+        const rFoot  = document.createElement('div');
+        rFoot.className = `${NS}-result-footer`;
+
+        const otherAction = action === 'translate' ? 'explain' : 'translate';
+        const otherLabel  = otherAction === 'translate' ? '🌐 翻译' : '📖 解释';
+
+        rFoot.appendChild(this._btn(otherLabel, () => this.onFetch?.(this.modelId, otherAction), true));
+        rFoot.appendChild(this._copyBtn(content));
+
+        this._body.appendChild(rHdr);
+        this._body.appendChild(rBody);
+        this._body.appendChild(rFoot);
+
+      } else if (status === 'error') {
+        const errEl = document.createElement('div');
+        errEl.className   = `${NS}-error`;
+        errEl.textContent = `⚠️ ${content}`;
+
+        const retryBtn = this._btn('🔄 重试', () => this.onFetch?.(this.modelId, action || 'translate'), true);
+        retryBtn.style.cssText = 'margin-top:8px; display:inline-flex;';
+
+        this._body.appendChild(errEl);
+        this._body.appendChild(retryBtn);
+      }
+    }
+
+    _btn(label, onClick, ghost = false) {
+      const btn = document.createElement('button');
+      btn.className = `${NS}-btn${ghost ? ` ${NS}-btn--ghost` : ''}`;
+      btn.textContent = label;
+      if (onClick) btn.addEventListener('click', (e) => { e.stopPropagation(); onClick(); });
+      return btn;
+    }
+
+    _copyBtn(text) {
+      const btn = this._btn('📋 复制', null, true);
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        navigator.clipboard.writeText(text)
+          .then(() => { btn.textContent = '✅ 已复制'; setTimeout(() => { btn.textContent = '📋 复制'; }, 1500); })
+          .catch(() => { btn.textContent = '❌ 失败';  setTimeout(() => { btn.textContent = '📋 复制'; }, 1500); });
       });
-    });
-    return btn;
+      return btn;
+    }
   }
 
-  // ─── 核心：发送消息给 Background 发起 API 请求 ──────────────────────────
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  FloatingIcon — 划词后出现的悬浮小气泡图标
+  // ═══════════════════════════════════════════════════════════════════════════
 
-  function triggerFetch(tabId, action) {
-    // 切换到该 Tab 并进入 loading 状态
-    state.tabState[tabId] = { status: 'loading', action, content: '' };
-    if (state.activeTab !== tabId) switchTab(tabId);
-    else {
-      const contentEl = panelEl?.querySelector(`#${NS}-content`);
-      if (contentEl) renderTabContent(contentEl, tabId);
+  class FloatingIcon {
+    constructor() {
+      this.el     = null;
+      this.onOpen = null; // (pos: {x, y}) => void
     }
 
-    chrome.runtime.sendMessage(
-      { action, text: state.selectedText, model: tabId },
-      (response) => {
-        if (chrome.runtime.lastError) {
-          state.tabState[tabId] = {
-            status: 'error',
-            action,
-            content: '无法连接扩展后台，请在 chrome://extensions 页面重新加载扩展。',
-          };
-        } else if (response?.success) {
-          state.tabState[tabId] = { status: 'result', action, content: response.result };
+    show(x, y) {
+      this.hide();
+      this.el = document.createElement('div');
+      this.el.id        = `${NS}-icon`;
+      this.el.className = `${NS}-icon`;
+      this.el.title     = '点击查询（翻译 / 解释）';
+      this.el.innerHTML = SVG_CHAT;
+
+      const pos = this._clamp(x + 12, y + 12);
+      this.el.style.left = `${pos.left}px`;
+      this.el.style.top  = `${pos.top}px`;
+
+      this.el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const iconPos = { x, y };
+        this.hide();
+        this.onOpen?.(iconPos);
+      });
+
+      document.body.appendChild(this.el);
+      requestAnimationFrame(() => this.el?.classList.add(`${NS}-icon--visible`));
+    }
+
+    hide() {
+      this.el?.remove();
+      this.el = null;
+    }
+
+    contains(target) {
+      return !!this.el?.contains(target);
+    }
+
+    _clamp(x, y, w = 36, h = 36) {
+      const vw = document.documentElement.clientWidth;
+      const vh = window.innerHeight;
+      const sx = window.scrollX, sy = window.scrollY;
+      return {
+        left: Math.min(Math.max(x, sx + 8), sx + vw - w - 8),
+        top:  Math.min(Math.max(y, sy + 8), sy + vh - h - 8),
+      };
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  PanelManager — 面板完整生命周期（拖拽、Pin、堆叠卡片、API请求）
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  class PanelManager {
+    constructor(app) {
+      this._app     = app;
+      this.el       = null;
+      this.isPinned = false;
+      this._drag    = null;
+      this._cards   = {};    // { deepseek: AccordionCard, qwen: AccordionCard }
+      this._preview = null;
+    }
+
+    get isOpen() { return !!this.el; }
+
+    /**
+     * 打开面板。若面板已打开，更新文本并重新查询。
+     * @param {string} text  选中文本
+     * @param {{x:number,y:number}} pos  页面坐标
+     */
+    open(text, pos) {
+      if (this.isOpen) {
+        this._updateText(text);
+        return;
+      }
+
+      this.el = this._build(text);
+      const clamped = this._clamp(pos.x, pos.y);
+      this.el.style.left = `${clamped.left}px`;
+      this.el.style.top  = `${clamped.top}px`;
+
+      document.body.appendChild(this.el);
+      requestAnimationFrame(() => this.el?.classList.add(`${NS}-panel--visible`));
+
+      // 根据偏好设置决定自动触发哪种操作
+      const pref = this._app.config.get('preferredAction');
+      this._fetchAll(pref && pref !== 'none' ? pref : 'translate');
+    }
+
+    close() {
+      if (!this.el) return;
+      this._drag?.destroy();
+      this._drag    = null;
+      this._cards   = {};
+      this._preview = null;
+      this.el.remove();
+      this.el       = null;
+      this.isPinned = false;
+    }
+
+    contains(target) {
+      return !!this.el?.contains(target);
+    }
+
+    // ── DOM 构建 ────────────────────────────────────────────────────────────
+
+    _build(text) {
+      const panel = document.createElement('div');
+      panel.id        = `${NS}-panel`;
+      panel.className = `${NS}-panel`;
+
+      panel.appendChild(this._buildHeader(text));
+      panel.appendChild(this._buildActionBar());
+      panel.appendChild(this._buildAccordionWrap());
+
+      this._drag = new DragController(panel, panel.querySelector(`.${NS}-panel-header`));
+      return panel;
+    }
+
+    _buildHeader(text) {
+      const header = document.createElement('div');
+      header.className = `${NS}-panel-header`;
+
+      // Logo
+      const logo = document.createElement('div');
+      logo.className = `${NS}-panel-logo`;
+      logo.innerHTML = SVG_CHAT;
+
+      // 标题
+      const title = document.createElement('span');
+      title.className   = `${NS}-panel-title`;
+      title.textContent = '划词助手';
+
+      // 弹性间距
+      const spacer = document.createElement('div');
+      spacer.className = `${NS}-panel-spacer`;
+
+      // 选中文本预览
+      this._preview = document.createElement('span');
+      this._preview.className   = `${NS}-preview`;
+      this._preview.textContent = `"${this._truncate(text)}"`;
+
+      // 📌 固定按钮
+      const btnPin = document.createElement('button');
+      btnPin.className = `${NS}-header-btn`;
+      btnPin.title     = '固定面板（固定后点击外部不会关闭）';
+      btnPin.innerHTML = SVG_PIN;
+      btnPin.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.isPinned = !this.isPinned;
+        btnPin.classList.toggle(`${NS}-header-btn--active`, this.isPinned);
+        btnPin.title = this.isPinned ? '已固定（再次点击取消）' : '固定面板';
+      });
+
+      // ❌ 关闭按钮
+      const btnClose = document.createElement('button');
+      btnClose.className = `${NS}-header-btn`;
+      btnClose.title     = '关闭';
+      btnClose.innerHTML = SVG_CLOSE;
+      btnClose.addEventListener('click', (e) => { e.stopPropagation(); this.close(); });
+
+      header.appendChild(logo);
+      header.appendChild(title);
+      header.appendChild(spacer);
+      header.appendChild(this._preview);
+      header.appendChild(btnPin);
+      header.appendChild(btnClose);
+
+      return header;
+    }
+
+    _buildActionBar() {
+      const bar = document.createElement('div');
+      bar.className = `${NS}-action-bar`;
+
+      const btnTr = document.createElement('button');
+      btnTr.className   = `${NS}-btn ${NS}-btn--sm`;
+      btnTr.textContent = '🌐 翻译';
+      btnTr.addEventListener('click', (e) => { e.stopPropagation(); this._fetchAll('translate'); });
+
+      const btnEx = document.createElement('button');
+      btnEx.className   = `${NS}-btn ${NS}-btn--sm ${NS}-btn--ghost`;
+      btnEx.textContent = '📖 解释术语';
+      btnEx.addEventListener('click', (e) => { e.stopPropagation(); this._fetchAll('explain'); });
+
+      bar.appendChild(btnTr);
+      bar.appendChild(btnEx);
+      return bar;
+    }
+
+    _buildAccordionWrap() {
+      const wrap = document.createElement('div');
+      wrap.className = `${NS}-accordion-wrap`;
+
+      const MODELS = [
+        { id: 'deepseek', label: 'DeepSeek' },
+        { id: 'qwen',     label: '通义千问' },
+      ];
+
+      MODELS.forEach(({ id, label }) => {
+        const card      = new AccordionCard(id, label);
+        card.onFetch    = (modelId, action) => this._fetchModel(modelId, action);
+        this._cards[id] = card;
+        wrap.appendChild(card.el);
+      });
+
+      return wrap;
+    }
+
+    // ── API 请求 ────────────────────────────────────────────────────────────
+
+    _fetchAll(action) {
+      Object.keys(this._cards).forEach((id) => this._fetchModel(id, action));
+    }
+
+    _fetchModel(modelId, action) {
+      const card = this._cards[modelId];
+      if (!card) return;
+
+      card.setLoading(action);
+      chrome.runtime.sendMessage(
+        { action, text: this._app.selectedText, model: modelId },
+        (response) => {
+          if (!this.isOpen) return; // 面板已关闭，丢弃响应
+          if (chrome.runtime.lastError) {
+            card.setError(action, '无法连接扩展后台，请在 chrome://extensions 页面重新加载扩展。');
+          } else if (response?.success) {
+            card.setResult(action, response.result);
+          } else {
+            card.setError(action, response?.error ?? '请求失败，请稍后重试。');
+          }
+        }
+      );
+    }
+
+    // ── 工具方法 ─────────────────────────────────────────────────────────────
+
+    _updateText(text) {
+      this._app.selectedText = text;
+      if (this._preview) this._preview.textContent = `"${this._truncate(text)}"`;
+      Object.values(this._cards).forEach((c) => c.reset());
+      this._fetchAll('translate');
+    }
+
+    _clamp(x, y, w = 360, h = 420) {
+      const vw = document.documentElement.clientWidth;
+      const vh = window.innerHeight;
+      const sx = window.scrollX, sy = window.scrollY;
+      let left = x, top = y + 8;
+      if (left + w > sx + vw - 8) left = sx + vw - w - 8;
+      if (left < sx + 8)          left = sx + 8;
+      if (top  + h > sy + vh - 8) top  = y - h - 8;
+      if (top  < sy + 8)          top  = sy + 8;
+      return { left, top };
+    }
+
+    _truncate(text, len = 38) {
+      return text.length > len ? `${text.slice(0, len)}…` : text;
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  SelectionManager — 全局事件监听、拦截器、触发器
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  class SelectionManager {
+    constructor(app) {
+      this._app           = app;
+      this._downOnIcon    = false;
+      this._downOnPanel   = false;
+      this._isDblClick    = false;
+      this._dblTimer      = null;
+      this._hoverTimer    = null;
+
+      this._onDown   = this._onDown.bind(this);
+      this._onUp     = this._onUp.bind(this);
+      this._onClick  = this._onClick.bind(this);
+      this._onDbl    = this._onDbl.bind(this);
+      this._onKey    = this._onKey.bind(this);
+      this._onScroll = this._onScroll.bind(this);
+      this._onMove   = this._onMove.bind(this);
+
+      document.addEventListener('mousedown', this._onDown);
+      document.addEventListener('mouseup',   this._onUp);
+      document.addEventListener('click',     this._onClick);
+      document.addEventListener('dblclick',  this._onDbl);
+      document.addEventListener('keydown',   this._onKey);
+      document.addEventListener('mousemove', this._onMove, { passive: true });
+      window.addEventListener('scroll',      this._onScroll, { passive: true });
+    }
+
+    // ── mousedown：记录 mousedown 是否落在 widget 上 ──────────────────────
+
+    _onDown(e) {
+      this._downOnIcon  = this._app.icon.contains(e.target);
+      this._downOnPanel = this._app.panel.contains(e.target);
+    }
+
+    // ── mouseup：核心拦截器 + 触发器 ──────────────────────────────────────
+
+    _onUp(e) {
+      // 若 mousedown 落在小图标上，由图标自身的 click 处理，此处忽略
+      if (this._downOnIcon) return;
+
+      // 用 10ms 延迟等待浏览器更新 selection 对象
+      const capturedE = {
+        pageX: e.pageX, pageY: e.pageY,
+        ctrlKey: e.ctrlKey, altKey: e.altKey,
+        shiftKey: e.shiftKey, metaKey: e.metaKey,
+      };
+
+      setTimeout(() => {
+        const sel  = window.getSelection();
+        const text = sel?.toString().trim() ?? '';
+
+        if (text.length < 1 || text.length > 500) {
+          // 没有有效选中文本
+          if (!this._app.panel.isOpen) this._app.icon.hide();
+          return;
+        }
+
+        // ── 拦截器 1：输入框/代码编辑器检测 ──
+        if (this._app.config.get('disableInInputs')) {
+          const anchor = sel.anchorNode?.parentElement;
+          if (InputBoxDetector.isInside(anchor)) return;
+        }
+
+        // ── 拦截器 2：语言匹配检测 ──
+        const langCfg = this._app.config.get('languages');
+        const strict  = this._app.config.get('strictLanguageMatch');
+        if (!LanguageDetector.matches(text, langCfg, strict)) return;
+
+        this._app.selectedText = text;
+
+        // ── 判断场景 ──
+        let scenario;
+        if (this._downOnPanel) {
+          scenario = 'insidePanel';
+        } else if (this._app.panel.isOpen && this._app.panel.isPinned) {
+          scenario = 'pinned';
         } else {
-          state.tabState[tabId] = {
-            status: 'error',
-            action,
-            content: response?.error || '请求失败，请稍后重试。',
-          };
+          scenario = 'normal';
         }
 
-        // 若当前面板仍在，且该 Tab 是活跃 Tab，则更新视图
-        if (panelEl && state.activeTab === tabId) {
-          const contentEl = panelEl.querySelector(`#${NS}-content`);
-          if (contentEl) renderTabContent(contentEl, tabId);
+        // ── 触发器：根据场景+规则决策 ──
+        const action = this._app.trigger.evaluate(scenario, capturedE, this._isDblClick);
+
+        if (action === 'direct') {
+          this._app.icon.hide();
+          this._app.panel.open(text, { x: capturedE.pageX, y: capturedE.pageY });
+        } else if (action === 'icon') {
+          if (!this._app.panel.isOpen) {
+            this._app.icon.show(capturedE.pageX, capturedE.pageY);
+          }
         }
+        // action === 'off' → 什么都不做
+      }, 10);
+    }
+
+    // ── click：点击空白处关闭 ──────────────────────────────────────────────
+
+    _onClick(e) {
+      // 如果 mousedown 落在 widget 上（按钮点击），不关闭
+      if (this._downOnIcon || this._downOnPanel) return;
+
+      if (this._app.panel.isOpen && !this._app.panel.isPinned) {
+        if (!this._app.panel.contains(e.target)) this._app.panel.close();
       }
-    );
+      if (!this._app.icon.contains(e.target)) {
+        this._app.icon.hide();
+      }
+    }
+
+    // ── dblclick：标记双击状态 ────────────────────────────────────────────
+
+    _onDbl() {
+      this._isDblClick = true;
+      clearTimeout(this._dblTimer);
+      this._dblTimer = setTimeout(() => { this._isDblClick = false; }, 400);
+    }
+
+    // ── keydown：Esc 关闭 ─────────────────────────────────────────────────
+
+    _onKey(e) {
+      if (e.key === 'Escape') {
+        this._app.icon.hide();
+        this._app.panel.close();
+      }
+    }
+
+    // ── scroll：滚动时关闭（不影响已钉住的面板）────────────────────────────
+
+    _onScroll() {
+      this._app.icon.hide();
+      if (!this._app.panel.isPinned) this._app.panel.close();
+    }
+
+    // ── mousemove：悬浮取词（hover select） ──────────────────────────────
+
+    _onMove(e) {
+      if (!this._app.config.get('triggerRules.normal.hoverSelect')) return;
+      if (this._app.panel.isOpen) return;
+
+      clearTimeout(this._hoverTimer);
+      this._hoverTimer = setTimeout(() => {
+        const range = document.caretRangeFromPoint?.(e.clientX, e.clientY);
+        if (!range) return;
+
+        range.expand?.('word');
+        const word = range.toString().trim();
+        if (word.length < 1 || word.length > 100) return;
+
+        if (this._app.config.get('disableInInputs')) {
+          if (InputBoxDetector.isInside(range.startContainer?.parentElement)) return;
+        }
+
+        this._app.selectedText = word;
+        this._app.icon.show(e.pageX, e.pageY);
+      }, 600);
+    }
   }
 
-  // ─── 全局事件监听 ──────────────────────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  ExtensionApp — 根节点，组合所有模块
+  // ═══════════════════════════════════════════════════════════════════════════
 
-  /** 记录 mousedown 是否落在我们的 widget 上，防止 click 事件误关闭 */
-  document.addEventListener('mousedown', (e) => {
-    state.mousedownOnWidget = !!(
-      (iconEl  && iconEl.contains(e.target)) ||
-      (panelEl && panelEl.contains(e.target))
-    );
-  });
+  class ExtensionApp {
+    constructor() {
+      this.selectedText = '';
+      this.config       = new ConfigManager();
+      this.icon         = new FloatingIcon();
+      this.panel        = new PanelManager(this);
+      this.trigger      = null;
+      this.selection    = null;
 
-  /** 划词监听 */
-  document.addEventListener('mouseup', (e) => {
-    if (state.mousedownOnWidget) return;
-
-    setTimeout(() => {
-      const sel  = window.getSelection();
-      const text = sel?.toString().trim() ?? '';
-
-      if (text.length >= 1 && text.length <= 500) {
-        state.selectedText = text;
-        resetTabState();
-        // 如果面板已打开，不要覆盖它；只在没有面板时才显示图标
-        if (!panelEl) showIcon(e.pageX, e.pageY);
-      } else {
-        // 点击空白导致 selection 清空，关闭所有
-        if (!panelEl) {
-          if (iconEl) { iconEl.remove(); iconEl = null; }
-        }
-      }
-    }, 10);
-  });
-
-  /** 点击空白处：关闭 */
-  document.addEventListener('click', (e) => {
-    if (!state.mousedownOnWidget) {
-      if (iconEl  && !iconEl.contains(e.target))  { iconEl.remove();  iconEl  = null; }
-      if (panelEl && !panelEl.contains(e.target)) cleanup();
+      this.icon.onOpen = (pos) => {
+        this.panel.open(this.selectedText, pos);
+      };
     }
-  });
 
-  /** Esc 关闭 */
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') cleanup();
-  });
+    async init() {
+      await this.config.load();
+      this.trigger   = new TriggerEngine(this.config);
+      this.selection = new SelectionManager(this);
+      console.debug('[划词助手 v3] 初始化完成。');
+    }
+  }
 
-  /** 滚动时关闭（防止面板位置漂移） */
-  window.addEventListener('scroll', cleanup, { passive: true });
+  // ── 启动 ──────────────────────────────────────────────────────────────────
+  const app = new ExtensionApp();
+  app.init();
 
 })();
