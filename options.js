@@ -29,25 +29,25 @@ const LANGUAGES = [
 const TRIGGER_SCENARIOS = [
   {
     key: 'normal',
-    label: '普通划词 喵~',
+    label: '普通划词喵~',
     icon: '🖱️',
     desc: '在普通页面上划选文字时的触发方式喵~（面板未打开或未固定）喵！',
   },
   {
     key: 'pinned',
-    label: '面板钉住后划词 喵~',
+    label: '面板钉住后划词喵~',
     icon: '📌',
-    desc: '查词面板被【📌 固定 喵~】时，在外部页面继续划选文字的触发方式喵！',
+    desc: '查词面板被【📌固定喵~】时，在外部页面继续划选文字的触发方式喵！',
   },
   {
     key: 'insidePanel',
-    label: '面板内部划词 喵~',
+    label: '面板内部划词喵~',
     icon: '📋',
     desc: '在已打开的查词面板内部选中文字时的触发方式喵~（如划选翻译结果中的单词再查词）喵！',
   },
   {
     key: 'standalone',
-    label: '独立窗口划词 喵~',
+    label: '独立窗口划词喵~',
     icon: '🪟',
     desc: '在扩展的独立弹出窗口中划词时的触发方式喵~（预留场景）喵！',
   },
@@ -149,17 +149,17 @@ class ApiConfigSection {
     const qwenKey = this._qwenInput.value.trim();
 
     if (deepseekKey && !deepseekKey.startsWith('sk-')) {
-      this._toast.show('error', 'DeepSeek API Key 格式有误喵~ 应以 sk- 开头');
+      this._toast.show('error', 'DeepSeek API Key格式有误喵~应以sk-开头');
       this._deepseekInput.focus();
       return;
     }
     if (qwenKey && !qwenKey.startsWith('sk-')) {
-      this._toast.show('error', '通义千问 API Key 格式有误喵~ 应以 sk- 开头');
+      this._toast.show('error', '通义千问API Key格式有误喵~应以sk-开头');
       this._qwenInput.focus();
       return;
     }
     if (!deepseekKey && !qwenKey) {
-      this._toast.show('error', '请至少填写一个 API Key 喵~');
+      this._toast.show('error', '请至少填写一个API Key喵~');
       return;
     }
 
@@ -168,14 +168,14 @@ class ApiConfigSection {
 
     chrome.storage.local.set({ deepseekKey, qwenKey }, () => {
       this._btnSave.disabled = false;
-      this._btnSave.textContent = '保存 API 配置 喵~';
+      this._btnSave.textContent = '保存API配置喵~';
       if (chrome.runtime.lastError) {
-        this._toast.show('error', `保存失败喵~ ${chrome.runtime.lastError.message}`);
+        this._toast.show('error', `保存失败喵~${chrome.runtime.lastError.message}`);
         return;
       }
       this._updateStatus(this._deepseekInput, this._statusDeepseek);
       this._updateStatus(this._qwenInput, this._statusQwen);
-      this._toast.show('success', 'API 配置已保存喵~ 立即生效 ✓');
+      this._toast.show('success', 'API配置已保存喵~立即生效✓');
     });
   }
 
@@ -183,7 +183,7 @@ class ApiConfigSection {
     if (!statusEl) return;
     const has = input.value.trim().length > 0;
     statusEl.className = `key-status ${has ? 'configured' : 'missing'}`;
-    statusEl.textContent = has ? '✓ 已配置喵~' : '○ 未填写喵~';
+    statusEl.textContent = has ? '✓已配置喵~' : '○未填写喵~';
   }
 
   _initKeyStatusWatchers() {
@@ -245,12 +245,12 @@ class BasicSettingsSection {
       touchMode: this._chkTouch.checked,
     }, () => {
       this._btnSave.disabled = false;
-      this._btnSave.textContent = '保存基础设置 喵~';
+      this._btnSave.textContent = '保存基础设置喵~';
       if (chrome.runtime.lastError) {
-        this._toast.show('error', `保存失败喵~ ${chrome.runtime.lastError.message}`);
+        this._toast.show('error', `保存失败喵~${chrome.runtime.lastError.message}`);
         return;
       }
-      this._toast.show('success', '基础设置已保存喵~ ✓');
+      this._toast.show('success', '基础设置已保存喵~✓');
     });
   }
 }
@@ -322,12 +322,12 @@ class LangMatchSection {
       strictLanguageMatch: this._chkStrict.checked,
     }, () => {
       this._btnSave.disabled = false;
-      this._btnSave.textContent = '保存语言设置 喵~';
+      this._btnSave.textContent = '保存语言设置喵~';
       if (chrome.runtime.lastError) {
-        this._toast.show('error', `保存失败喵~ ${chrome.runtime.lastError.message}`);
+        this._toast.show('error', `保存失败喵~${chrome.runtime.lastError.message}`);
         return;
       }
-      this._toast.show('success', '语言设置已保存喵~ ✓');
+      this._toast.show('success', '语言设置已保存喵~✓');
     });
   }
 }
@@ -397,10 +397,10 @@ class TriggerRulesSection {
     const opts = document.createElement('div');
     opts.className = 'trigger-options';
 
-    const showIconChk = this._makeCheckRow(opts, `${scenarioKey}-showIcon`, '显示图标 喵~', '划词后在光标附近出现小气泡图标喵~ 悬停或点击后展开面板喵！');
-    const directSearchChk = this._makeCheckRow(opts, `${scenarioKey}-directSearch`, '直接搜索 喵~', '划词后直接弹出大面板喵~ 同时向两个模型发起请求喵！无需点击图标喵~');
-    const dblclickSearchChk = this._makeCheckRow(opts, `${scenarioKey}-dblclickSearch`, '双击搜索 喵~', '仅双击选词时才直接弹出面板喵~（优先级高于"直接搜索"）喵！');
-    const hoverSelectChk = this._makeCheckRow(opts, `${scenarioKey}-hoverSelect`, '鼠标悬浮取词 喵~', '无需点击喵~ 鼠标悬停约 0.6 秒后自动选取光标周边单词并显示图标喵！');
+    const showIconChk = this._makeCheckRow(opts, `${scenarioKey}-showIcon`, '显示图标喵~', '划词后在光标附近出现小气泡图标喵~悬停或点击后展开面板喵！');
+    const directSearchChk = this._makeCheckRow(opts, `${scenarioKey}-directSearch`, '直接搜索喵~', '划词后直接弹出大面板喵~同时向两个模型发起请求喵！无需点击图标喵~');
+    const dblclickSearchChk = this._makeCheckRow(opts, `${scenarioKey}-dblclickSearch`, '双击搜索喵~', '仅双击选词时才直接弹出面板喵~（优先级高于"直接搜索"）喵！');
+    const hoverSelectChk = this._makeCheckRow(opts, `${scenarioKey}-hoverSelect`, '鼠标悬浮取词喵~', '无需点击喵~鼠标悬停约0.6秒后自动选取光标周边单词并显示图标喵！');
 
     // 组合键
     const modRow = document.createElement('div');
@@ -408,7 +408,7 @@ class TriggerRulesSection {
     modRow.innerHTML = `
       <div class="trigger-option-label">
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h0M10 10h0M14 10h0M18 10h0M8 14h8"/></svg>
-        组合键触发 喵~
+        组合键触发喵~
       </div>
       <div class="trigger-option-desc">按住以下任一修饰键划词时，强制触发直接搜索喵~（优先级高于基础模式）喵！</div>
     `;
@@ -513,12 +513,12 @@ class TriggerRulesSection {
 
     chrome.storage.local.set({ triggerRules }, () => {
       this._btnSave.disabled = false;
-      this._btnSave.textContent = '保存触发规则 喵~';
+      this._btnSave.textContent = '保存触发规则喵~';
       if (chrome.runtime.lastError) {
-        this._toast.show('error', `保存失败喵~ ${chrome.runtime.lastError.message}`);
+        this._toast.show('error', `保存失败喵~${chrome.runtime.lastError.message}`);
         return;
       }
-      this._toast.show('success', '触发规则已保存喵~ 刷新页面后生效 ✓');
+      this._toast.show('success', '触发规则已保存喵~刷新页面后生效✓');
     });
   }
 }
@@ -550,12 +550,12 @@ class PrefsSection {
 
     chrome.storage.local.set({ preferredAction: this._preferredAction.value }, () => {
       this._btnSave.disabled = false;
-      this._btnSave.textContent = '保存偏好设置 喵~';
+      this._btnSave.textContent = '保存偏好设置喵~';
       if (chrome.runtime.lastError) {
-        this._toast.show('error', `保存失败喵~ ${chrome.runtime.lastError.message}`);
+        this._toast.show('error', `保存失败喵~${chrome.runtime.lastError.message}`);
         return;
       }
-      this._toast.show('success', '偏好设置已保存喵~ ✓');
+      this._toast.show('success', '偏好设置已保存喵~✓');
     });
   }
 }
