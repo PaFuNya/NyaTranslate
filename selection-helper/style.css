@@ -9,26 +9,26 @@
    ═══════════════════════════════════════════════════════════════════════════ */
 .my-ext-panel,
 #my-ext-icon {
-  --ext-accent:          #5b6af0;
-  --ext-accent-hover:    #4554e8;
-  --ext-accent-active:   #3644d8;
-  --ext-accent-soft:     #eef0ff;
-  --ext-bg:              #ffffff;
-  --ext-border:          rgba(0, 0, 0, 0.07);
-  --ext-shadow-icon:     0 2px 8px rgba(91, 106, 240, 0.45), 0 0 0 1px rgba(91, 106, 240, 0.2);
-  --ext-shadow-panel:    0 4px 6px -1px rgba(0,0,0,0.08),
-                         0 12px 28px -4px rgba(0,0,0,0.14),
-                         0 0 0 1px rgba(0,0,0,0.04);
-  --ext-radius-icon:     50%;
-  --ext-radius-panel:    14px;
-  --ext-radius-btn:      8px;
-  --ext-font:            -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
-                         'Microsoft YaHei', 'Noto Sans SC', sans-serif;
-  --ext-text-primary:    #111827;
-  --ext-text-secondary:  #6b7280;
-  --ext-text-muted:      #9ca3af;
-  --ext-transition:      0.16s cubic-bezier(0.4, 0, 0.2, 1);
-  --ext-tab-active-bg:   #ffffff;
+  --ext-accent: #5b6af0;
+  --ext-accent-hover: #4554e8;
+  --ext-accent-active: #3644d8;
+  --ext-accent-soft: #eef0ff;
+  --ext-bg: #ffffff;
+  --ext-border: rgba(0, 0, 0, 0.07);
+  --ext-shadow-icon: 0 2px 8px rgba(91, 106, 240, 0.45), 0 0 0 1px rgba(91, 106, 240, 0.2);
+  --ext-shadow-panel: 0 4px 6px -1px rgba(0, 0, 0, 0.08),
+    0 12px 28px -4px rgba(0, 0, 0, 0.14),
+    0 0 0 1px rgba(0, 0, 0, 0.04);
+  --ext-radius-icon: 50%;
+  --ext-radius-panel: 14px;
+  --ext-radius-btn: 8px;
+  --ext-font: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+    'Microsoft YaHei', 'Noto Sans SC', sans-serif;
+  --ext-text-primary: #111827;
+  --ext-text-secondary: #6b7280;
+  --ext-text-muted: #9ca3af;
+  --ext-transition: 0.16s cubic-bezier(0.4, 0, 0.2, 1);
+  --ext-tab-active-bg: #ffffff;
   --ext-tab-inactive-bg: #f3f4f6;
 }
 
@@ -56,8 +56,8 @@
   opacity: 0;
   transform: scale(0.6);
   transition: opacity var(--ext-transition),
-              transform var(--ext-transition),
-              box-shadow var(--ext-transition);
+    transform var(--ext-transition),
+    box-shadow var(--ext-transition);
 }
 
 #my-ext-icon.my-ext-icon--visible {
@@ -81,7 +81,7 @@
   all: initial;
   display: flex;
   flex-direction: column;
-  position: absolute;   /* 默认吸附页面，pin screen 模式切换为 fixed */
+  position: absolute;
   z-index: 2147483647;
   width: 360px;
   background: var(--ext-bg);
@@ -98,40 +98,12 @@
   opacity: 0;
   transform: translateY(-8px) scale(0.97);
   transition: opacity var(--ext-transition),
-              transform var(--ext-transition);
+    transform var(--ext-transition);
 }
 
 .my-ext-panel.my-ext-panel--visible {
   opacity: 1;
   transform: translateY(0) scale(1);
-}
-
-/* 钉住状态：页面模式（position:absolute，随页面滚动） */
-.my-ext-panel[data-pin-mode="page"] .my-ext-panel-header {
-  background: linear-gradient(180deg, #fffbf0 0%, #fffef5 100%);
-}
-
-.my-ext-panel[data-pin-mode="page"] .my-ext-panel-title::after {
-  content: '·页';
-  font-size: 10px;
-  font-weight: 400;
-  color: #d97706;
-  margin-left: 4px;
-  opacity: 0.8;
-}
-
-/* 钉住状态：屏幕模式（position:fixed，始终显示） */
-.my-ext-panel[data-pin-mode="screen"] .my-ext-panel-header {
-  background: linear-gradient(180deg, #f0f4ff 0%, #f5f8ff 100%);
-}
-
-.my-ext-panel[data-pin-mode="screen"] .my-ext-panel-title::after {
-  content: '·屏';
-  font-size: 10px;
-  font-weight: 400;
-  color: #5b6af0;
-  margin-left: 4px;
-  opacity: 0.8;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -257,9 +229,18 @@
   max-height: 360px;
 }
 
-.my-ext-accordion-wrap::-webkit-scrollbar { width: 4px; }
-.my-ext-accordion-wrap::-webkit-scrollbar-track { background: transparent; }
-.my-ext-accordion-wrap::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 2px; }
+.my-ext-accordion-wrap::-webkit-scrollbar {
+  width: 4px;
+}
+
+.my-ext-accordion-wrap::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.my-ext-accordion-wrap::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 2px;
+}
 
 /* 单张折叠卡片 */
 .my-ext-accordion {
@@ -389,13 +370,31 @@
   margin-right: 10px;
 }
 
-.my-ext-accordion-body .my-ext-loading { padding: 8px 0 10px; }
-.my-ext-accordion-body .my-ext-hint    { padding: 6px 0 10px; }
+.my-ext-accordion-body .my-ext-loading {
+  padding: 8px 0 10px;
+}
 
-.my-ext-accordion-body .my-ext-result-header { margin-top: 10px; }
-.my-ext-accordion-body .my-ext-result-body   { padding: 0 10px 0; margin-bottom: 8px; }
-.my-ext-accordion-body .my-ext-result-footer { padding: 0 10px 10px; }
-.my-ext-accordion-body .my-ext-error         { margin-top: 8px; margin-bottom: 4px; }
+.my-ext-accordion-body .my-ext-hint {
+  padding: 6px 0 10px;
+}
+
+.my-ext-accordion-body .my-ext-result-header {
+  margin-top: 10px;
+}
+
+.my-ext-accordion-body .my-ext-result-body {
+  padding: 0 10px 0;
+  margin-bottom: 8px;
+}
+
+.my-ext-accordion-body .my-ext-result-footer {
+  padding: 0 10px 10px;
+}
+
+.my-ext-accordion-body .my-ext-error {
+  margin-top: 8px;
+  margin-bottom: 4px;
+}
 
 /* ═══════════════════════════════════════════════════════════════════════════
    Tab 栏（保留旧代码兼容，v3 中不再使用）
@@ -426,7 +425,7 @@
   border-radius: 8px 8px 0 0;
   background: transparent;
   transition: background var(--ext-transition),
-              color var(--ext-transition);
+    color var(--ext-transition);
   user-select: none;
   box-sizing: border-box;
   white-space: nowrap;
@@ -509,8 +508,8 @@
   background: var(--ext-accent);
   color: #ffffff;
   transition: background var(--ext-transition),
-              transform var(--ext-transition),
-              box-shadow var(--ext-transition);
+    transform var(--ext-transition),
+    box-shadow var(--ext-transition);
 }
 
 .my-ext-btn:hover {
@@ -580,7 +579,9 @@
 }
 
 @keyframes my-ext-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* 三点脉冲动画 */
@@ -604,13 +605,31 @@
   box-sizing: border-box;
 }
 
-.my-ext-dot:nth-child(1) { animation-delay: 0s; }
-.my-ext-dot:nth-child(2) { animation-delay: 0.2s; }
-.my-ext-dot:nth-child(3) { animation-delay: 0.4s; }
+.my-ext-dot:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.my-ext-dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.my-ext-dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
 
 @keyframes my-ext-pulse {
-  0%, 80%, 100% { opacity: 0.2; transform: scale(0.85); }
-  40%            { opacity: 1;   transform: scale(1.1);  }
+
+  0%,
+  80%,
+  100% {
+    opacity: 0.2;
+    transform: scale(0.85);
+  }
+
+  40% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -648,9 +667,11 @@
 .my-ext-result-body::-webkit-scrollbar {
   width: 4px;
 }
+
 .my-ext-result-body::-webkit-scrollbar-track {
   background: transparent;
 }
+
 .my-ext-result-body::-webkit-scrollbar-thumb {
   background: #d1d5db;
   border-radius: 2px;
@@ -684,119 +705,65 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   DeepSeek Combined 双效结果展示
+   固定下拉菜单
    ═══════════════════════════════════════════════════════════════════════════ */
-.my-ext-combined-section {
-  all: unset;
-  display: block;
-  padding: 8px 10px 10px;
-  box-sizing: border-box;
+.my-ext-pin-container {
+  position: relative;
+  display: inline-block;
 }
 
-.my-ext-combined-section + .my-ext-combined-section {
-  border-top: 1px solid var(--ext-border);
-}
-
-.my-ext-combined-title {
-  all: unset;
-  display: block;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--ext-accent);
-  font-family: var(--ext-font);
-  margin-bottom: 6px;
-  box-sizing: border-box;
-}
-
-.my-ext-combined-body {
-  all: unset;
-  display: block;
-  font-size: 13.5px;
-  color: var(--ext-text-primary);
-  font-family: var(--ext-font);
-  line-height: 1.75;
-  white-space: pre-wrap;
-  word-break: break-word;
-  box-sizing: border-box;
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   PinDropdown — 固定模式选择下拉
-   ═══════════════════════════════════════════════════════════════════════════ */
 .my-ext-pin-dropdown {
-  all: initial;
-  display: flex;
-  flex-direction: column;
-  position: fixed;
-  z-index: 2147483647;
-  width: 192px;
-  background: #ffffff;
-  border-radius: 10px;
-  box-shadow:
-    0 4px 6px -1px rgba(0,0,0,0.08),
-    0 12px 24px -4px rgba(0,0,0,0.13),
-    0 0 0 1px rgba(0,0,0,0.05);
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background: white;
+  border: 1px solid var(--ext-border);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  min-width: 160px;
+  margin-top: 4px;
+  z-index: 1000;
   overflow: hidden;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
-               'Microsoft YaHei', 'Noto Sans SC', sans-serif;
-  box-sizing: border-box;
-
-  opacity: 0;
-  transform: translateY(-4px) scale(0.97);
-  transition: opacity 0.14s ease, transform 0.14s ease;
-}
-
-.my-ext-pin-dropdown--visible {
-  opacity: 1;
-  transform: translateY(0) scale(1);
 }
 
 .my-ext-pin-option {
   all: unset;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  cursor: pointer;
   width: 100%;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-family: var(--ext-font);
+  color: var(--ext-text-primary);
+  cursor: pointer;
   box-sizing: border-box;
-  transition: background 0.12s ease;
-  border-bottom: 1px solid rgba(0,0,0,0.05);
-}
-
-.my-ext-pin-option:last-child {
-  border-bottom: none;
+  background: white;
+  border: none;
+  text-align: left;
 }
 
 .my-ext-pin-option:hover {
-  background: #f3f4f6;
+  background: var(--ext-accent-soft);
 }
 
-.my-ext-pin-option-icon {
-  all: unset;
-  font-size: 18px;
-  flex-shrink: 0;
-  line-height: 1;
+.my-ext-pin-option--danger {
+  color: #dc2626;
+  border-top: 1px solid var(--ext-border);
 }
 
-.my-ext-pin-option-title {
-  all: unset;
-  display: block;
-  font-size: 13px;
-  font-weight: 600;
-  color: #111827;
-  font-family: inherit;
-  line-height: 1.3;
+.my-ext-pin-option--danger:hover {
+  background: #fef2f2;
 }
 
-.my-ext-pin-option-desc {
-  all: unset;
-  display: block;
-  font-size: 11px;
-  color: #9ca3af;
-  font-family: inherit;
-  margin-top: 2px;
-  line-height: 1.4;
+/* 结果分节 */
+.my-ext-result-section {
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--ext-border);
+  padding-bottom: 12px;
+}
+
+.my-ext-result-section:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
 }
