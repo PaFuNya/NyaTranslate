@@ -5,7 +5,7 @@
  */
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   设计 Token（在 #my-ext-panel 作用域内定义，不污染全局）
+   设计 Token（在 .my-ext-panel 作用域内定义，不污染全局）
    ═══════════════════════════════════════════════════════════════════════════ */
 .my-ext-panel,
 #my-ext-icon {
@@ -75,7 +75,7 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   悬浮面板容器
+   悬浮面板容器（支持多实例，使用 class 选择器）
    ═══════════════════════════════════════════════════════════════════════════ */
 .my-ext-panel {
   all: initial;
@@ -196,6 +196,59 @@
 
 .my-ext-header-btn--active:hover {
   background: #dde0fd !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Pin 下拉菜单
+   ═══════════════════════════════════════════════════════════════════════════ */
+.my-ext-pin-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.my-ext-pin-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 2147483647;
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 10px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12), 0 1px 4px rgba(0, 0, 0, 0.06);
+  padding: 4px;
+  min-width: 160px;
+  box-sizing: border-box;
+  display: none;
+}
+
+.my-ext-pin-option {
+  all: unset;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 7px 10px;
+  font-size: 12.5px;
+  font-family: var(--ext-font);
+  color: var(--ext-text-primary);
+  cursor: pointer;
+  border-radius: 7px;
+  box-sizing: border-box;
+  transition: background var(--ext-transition);
+  white-space: nowrap;
+}
+
+.my-ext-pin-option:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.my-ext-pin-option--danger {
+  color: #dc2626;
+}
+
+.my-ext-pin-option--danger:hover {
+  background: #fef2f2;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -686,6 +739,44 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
+   Combined 结果区块（DeepSeek 双效合一）
+   ═══════════════════════════════════════════════════════════════════════════ */
+.my-ext-combined-section {
+  all: unset;
+  display: block;
+  box-sizing: border-box;
+  padding: 10px 10px 0;
+}
+
+.my-ext-combined-section:last-child {
+  padding-bottom: 10px;
+}
+
+.my-ext-combined-label {
+  all: unset;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ext-accent);
+  font-family: var(--ext-font);
+  margin-bottom: 5px;
+  box-sizing: border-box;
+}
+
+.my-ext-combined-divider {
+  all: unset;
+  display: block;
+  height: 1px;
+  background: var(--ext-border);
+  margin: 2px 10px 0;
+  box-sizing: border-box;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
    错误状态
    ═══════════════════════════════════════════════════════════════════════════ */
 .my-ext-error {
@@ -702,68 +793,4 @@
   white-space: pre-wrap;
   word-break: break-word;
   box-sizing: border-box;
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   固定下拉菜单
-   ═══════════════════════════════════════════════════════════════════════════ */
-.my-ext-pin-container {
-  position: relative;
-  display: inline-block;
-}
-
-.my-ext-pin-dropdown {
-  position: absolute;
-  top: 100%;
-  right: 0;
-  background: white;
-  border: 1px solid var(--ext-border);
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  min-width: 160px;
-  margin-top: 4px;
-  z-index: 1000;
-  overflow: hidden;
-}
-
-.my-ext-pin-option {
-  all: unset;
-  display: flex;
-  align-items: center;
-  width: 100%;
-  padding: 8px 12px;
-  font-size: 13px;
-  font-family: var(--ext-font);
-  color: var(--ext-text-primary);
-  cursor: pointer;
-  box-sizing: border-box;
-  background: white;
-  border: none;
-  text-align: left;
-}
-
-.my-ext-pin-option:hover {
-  background: var(--ext-accent-soft);
-}
-
-.my-ext-pin-option--danger {
-  color: #dc2626;
-  border-top: 1px solid var(--ext-border);
-}
-
-.my-ext-pin-option--danger:hover {
-  background: #fef2f2;
-}
-
-/* 结果分节 */
-.my-ext-result-section {
-  margin-bottom: 16px;
-  border-bottom: 1px solid var(--ext-border);
-  padding-bottom: 12px;
-}
-
-.my-ext-result-section:last-child {
-  border-bottom: none;
-  margin-bottom: 0;
-  padding-bottom: 0;
 }

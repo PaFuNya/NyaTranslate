@@ -43,6 +43,16 @@ function buildSystemPrompt(type) {
       '使用中文回答，语言简练，不要用 Markdown 格式。'
     );
   }
+  if (type === 'combined') {
+    return (
+      '你是翻译与术语解释专家。请对用户发送的文本同时完成以下两项任务，' +
+      '严格按照以下 Markdown 格式输出，不要添加任何额外说明：\n\n' +
+      '### 翻译\n' +
+      '（将文本翻译成中文；若原文已是中文则译为英文；只输出译文本身）\n\n' +
+      '### 解释\n' +
+      '（对文本中的核心术语或概念给出简洁专业解释：核心定义 1-2 句 + 使用场景或领域背景 1-2 句；用中文作答）'
+    );
+  }
   return '你是一个助手，请回答用户的问题。';
 }
 
@@ -133,7 +143,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
-  if (!['translate', 'explain'].includes(action)) {
+  if (!['translate', 'explain', 'combined'].includes(action)) {
     sendResponse({ success: false, error: `未知的动作: ${action}` });
     return true;
   }

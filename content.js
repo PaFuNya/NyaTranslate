@@ -171,7 +171,10 @@
       if (!element) return false;
       const tag = element.tagName?.toLowerCase();
       if (['input', 'textarea', 'select'].includes(tag)) return true;
+      // isContentEditable 在浏览器中会向下传播，子元素也返回 true
       if (element.isContentEditable) return true;
+      // 显式向上查找带有 contenteditable 属性的祖先元素（覆盖边缘情况）
+      if (element.closest?.('[contenteditable="true"], [contenteditable=""]')) return true;
 
       let el = element;
       while (el && el !== document.body) {
@@ -272,14 +275,24 @@
       const dy = e.clientY - this._oy;
       const pw = this._panel.offsetWidth;
       const ph = this._panel.offsetHeight;
-      const sx = window.scrollX, sy = window.scrollY;
-      const vw = window.innerWidth, vh = window.innerHeight;
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const isFixed = this._panel.style.position === 'fixed';
 
-      const left = Math.max(sx + 8, Math.min(this._pl + dx, sx + vw - pw - 8));
-      const top = Math.max(sy + 8, Math.min(this._pt + dy, sy + vh - ph - 8));
+      let left, top;
+      if (isFixed) {
+        // fixed 定位：坐标相对视口，不含 scroll 偏移
+        left = Math.max(8, Math.min(this._pl + dx, vw - pw - 8));
+        top  = Math.max(8, Math.min(this._pt + dy, vh - ph - 8));
+      } else {
+        // absolute 定位：坐标相对文档，需加 scroll 偏移作为边界基准
+        const sx = window.scrollX, sy = window.scrollY;
+        left = Math.max(sx + 8, Math.min(this._pl + dx, sx + vw - pw - 8));
+        top  = Math.max(sy + 8, Math.min(this._pt + dy, sy + vh - ph - 8));
+      }
 
       this._panel.style.left = `${left}px`;
-      this._panel.style.top = `${top}px`;
+      this._panel.style.top  = `${top}px`;
     }
 
     _up() {
@@ -313,9 +326,13 @@
     constructor(modelId, modelLabel) {
       this.modelId = modelId;
       this.label = modelLabel;
+      // deepseek 使用 combined 模式（单次请求返回翻译+解释）
+      // qwen 使用 translate + explain 分离模式
+      this._useCombined = (modelId === 'deepseek');
       this.state = {
         translate: { status: 'idle', content: '' },
-        explain: { status: 'idle', content: '' }
+        explain:   { status: 'idle', content: '' },
+        combined:  { status: 'idle', content: '' },
       };
       this.onFetch = null; // (modelId, action) => void  —— 由 PanelManager 注入
 
@@ -384,7 +401,7 @@
     // ── 状态更新 ──────────────────────────────────────────────────────────
 
     setLoading(action) {
-      if (action === 'translate' || action === 'explain') {
+      if (action in this.state) {
         this.state[action] = { status: 'loading', content: '' };
       }
       this._updateDot();
@@ -393,7 +410,7 @@
     }
 
     setResult(action, content) {
-      if (action === 'translate' || action === 'explain') {
+      if (action in this.state) {
         this.state[action] = { status: 'result', content };
       }
       this._updateDot();
@@ -401,7 +418,7 @@
     }
 
     setError(action, error) {
-      if (action === 'translate' || action === 'explain') {
+      if (action in this.state) {
         this.state[action] = { status: 'error', content: error };
       }
       this._updateDot();
@@ -411,21 +428,28 @@
     reset() {
       this.state = {
         translate: { status: 'idle', content: '' },
-        explain: { status: 'idle', content: '' }
+        explain:   { status: 'idle', content: '' },
+        combined:  { status: 'idle', content: '' },
       };
       this._updateDot();
       this._renderBody();
     }
 
     _updateDot() {
-      const { translate, explain } = this.state;
+      const { translate, explain, combined } = this.state;
+      const relevant = this._useCombined
+        ? [combined]
+        : [translate, explain];
 
-      // 优先级：错误 > 加载 > 成功 > 空闲
-      if (translate.status === 'error' || explain.status === 'error') {
+      const hasError   = relevant.some(s => s.status === 'error');
+      const hasLoading = relevant.some(s => s.status === 'loading');
+      const allResult  = relevant.every(s => s.status === 'result');
+
+      if (hasError) {
         this._dot.className = `${NS}-accordion-dot ${NS}-accordion-dot--error`;
-      } else if (translate.status === 'loading' || explain.status === 'loading') {
+      } else if (hasLoading) {
         this._dot.className = `${NS}-accordion-dot ${NS}-accordion-dot--loading`;
-      } else if (translate.status === 'result' && explain.status === 'result') {
+      } else if (allResult) {
         this._dot.className = `${NS}-accordion-dot ${NS}-accordion-dot--success`;
       } else {
         this._dot.className = `${NS}-accordion-dot`;
@@ -436,12 +460,115 @@
 
     _renderBody() {
       this._body.innerHTML = '';
+
+      if (this._useCombined) {
+        this._renderBodyCombined();
+      } else {
+        this._renderBodySplit();
+      }
+    }
+
+    _renderBodyCombined() {
+      const { combined } = this.state;
+
+      if (combined.status === 'idle') {
+        const hint = document.createElement('p');
+        hint.className = `${NS}-hint`;
+        hint.textContent = `由 ${this.label} 同时提供翻译与解释`;
+        this._body.appendChild(hint);
+        return;
+      }
+
+      if (combined.status === 'loading') {
+        this._body.appendChild(this._buildLoader());
+        return;
+      }
+
+      if (combined.status === 'error') {
+        const err = document.createElement('div');
+        err.className = `${NS}-error`;
+        err.style.cssText = 'margin:10px;';
+        err.textContent = `⚠️ ${combined.content}`;
+        this._body.appendChild(err);
+
+        const retryBtn = this._btn('🔄 重试', () => {
+          this.onFetch?.(this.modelId, 'combined');
+        }, true);
+        retryBtn.style.cssText = 'margin:8px 10px 12px; display:inline-flex;';
+        this._body.appendChild(retryBtn);
+        return;
+      }
+
+      if (combined.status === 'result') {
+        this._renderCombinedSections(combined.content);
+      }
+    }
+
+    _renderCombinedSections(content) {
+      // 解析 ### 翻译 / ### 解释 两段
+      const sectionRe = /^###\s+(.+)$/m;
+      const parts = content.split(/(?=^###\s+)/m).filter(s => s.trim());
+
+      if (parts.length === 0) {
+        // 无法解析结构，直接展示原文
+        const section = document.createElement('div');
+        section.className = `${NS}-combined-section`;
+        const body = document.createElement('div');
+        body.className = `${NS}-result-body`;
+        body.textContent = content;
+        const footer = document.createElement('div');
+        footer.className = `${NS}-result-footer`;
+        footer.style.cssText = 'padding:0 10px 10px;';
+        footer.appendChild(this._copyBtn(content));
+        section.appendChild(body);
+        section.appendChild(footer);
+        this._body.appendChild(section);
+        return;
+      }
+
+      parts.forEach((part, idx) => {
+        const match = part.match(sectionRe);
+        const rawTitle = match ? match[1].trim() : '';
+        const bodyText = part.replace(sectionRe, '').trim();
+
+        if (idx > 0) {
+          const divider = document.createElement('div');
+          divider.className = `${NS}-combined-divider`;
+          this._body.appendChild(divider);
+        }
+
+        const section = document.createElement('div');
+        section.className = `${NS}-combined-section`;
+
+        if (rawTitle) {
+          const label = document.createElement('div');
+          label.className = `${NS}-combined-label`;
+          const icon = rawTitle.includes('翻译') ? '🌐' : '📖';
+          label.textContent = `${icon} ${rawTitle}`;
+          section.appendChild(label);
+        }
+
+        const body = document.createElement('div');
+        body.className = `${NS}-result-body`;
+        body.textContent = bodyText;
+        section.appendChild(body);
+
+        const footer = document.createElement('div');
+        footer.className = `${NS}-result-footer`;
+        footer.style.cssText = 'padding:0 0 6px;';
+        footer.appendChild(this._copyBtn(bodyText));
+        section.appendChild(footer);
+
+        this._body.appendChild(section);
+      });
+    }
+
+    _renderBodySplit() {
       const { translate, explain } = this.state;
 
-      // 检查是否有任何加载状态
       const isLoading = translate.status === 'loading' || explain.status === 'loading';
-      const hasError = translate.status === 'error' || explain.status === 'error';
-      const allIdle = translate.status === 'idle' && explain.status === 'idle';
+      const hasError  = translate.status === 'error'   || explain.status === 'error';
+      const allIdle   = translate.status === 'idle'    && explain.status === 'idle';
 
       if (allIdle) {
         const hint = document.createElement('p');
@@ -452,41 +579,17 @@
       }
 
       if (isLoading) {
-        const loader = document.createElement('div');
-        loader.className = `${NS}-loading`;
-
-        const spinner = document.createElement('div');
-        spinner.className = `${NS}-spinner`;
-
-        const txt = document.createElement('span');
-        txt.className = `${NS}-loading-text`;
-        txt.textContent = `${this.label} 正在思考中…`;
-
-        const dots = document.createElement('div');
-        dots.className = `${NS}-dots`;
-        for (let i = 0; i < 3; i++) {
-          const d = document.createElement('span');
-          d.className = `${NS}-dot`;
-          dots.appendChild(d);
-        }
-
-        loader.appendChild(spinner);
-        loader.appendChild(txt);
-        loader.appendChild(dots);
-        this._body.appendChild(loader);
+        this._body.appendChild(this._buildLoader());
       }
 
-      // 渲染翻译结果
       if (translate.status === 'result' || translate.status === 'error') {
         this._renderResultSection('translate', translate);
       }
 
-      // 渲染解释结果
       if (explain.status === 'result' || explain.status === 'error') {
         this._renderResultSection('explain', explain);
       }
 
-      // 如果只有错误没有结果，添加重试按钮
       if (hasError && !isLoading && translate.status !== 'result' && explain.status !== 'result') {
         const retryBtn = this._btn('🔄 重试', () => {
           if (translate.status === 'error') this.onFetch?.(this.modelId, 'translate');
@@ -495,6 +598,31 @@
         retryBtn.style.cssText = 'margin-top:12px; display:inline-flex;';
         this._body.appendChild(retryBtn);
       }
+    }
+
+    _buildLoader() {
+      const loader = document.createElement('div');
+      loader.className = `${NS}-loading`;
+
+      const spinner = document.createElement('div');
+      spinner.className = `${NS}-spinner`;
+
+      const txt = document.createElement('span');
+      txt.className = `${NS}-loading-text`;
+      txt.textContent = `${this.label} 正在思考中…`;
+
+      const dots = document.createElement('div');
+      dots.className = `${NS}-dots`;
+      for (let i = 0; i < 3; i++) {
+        const d = document.createElement('span');
+        d.className = `${NS}-dot`;
+        dots.appendChild(d);
+      }
+
+      loader.appendChild(spinner);
+      loader.appendChild(txt);
+      loader.appendChild(dots);
+      return loader;
     }
 
     _renderResultSection(type, state) {
@@ -648,15 +776,35 @@
 
     close() {
       if (!this.el) return;
-      this.el.classList.remove(`${NS}-panel--visible`);
-      setTimeout(() => {
-        if (this.el && this.el.parentNode) this.el.parentNode.removeChild(this.el);
-        this.el = null;
-        // 通知管理器面板已关闭
-        if (this._panelsManager) {
-          this._panelsManager.onPanelClosed(this.id);
-        }
-      }, 200);
+
+      // 立即置 null 防止重入，持有 el 引用用于后续清理
+      const el = this.el;
+      this.el = null;
+
+      // 清理 pin dropdown document 监听器
+      this._pinDropdownAbort?.abort();
+      this._pinDropdownAbort = null;
+
+      // 清理拖拽控制器
+      if (this._drag) {
+        this._drag.destroy();
+        this._drag = null;
+      }
+
+      // 触发退场动画
+      el.classList.remove(`${NS}-panel--visible`);
+
+      const cleanup = () => {
+        el.remove();
+        this._panelsManager?.onPanelClosed(this.id);
+      };
+
+      // transitionend 兜底：220ms 后强制移除（略大于 CSS transition 160ms）
+      const timer = setTimeout(cleanup, 220);
+      el.addEventListener('transitionend', () => {
+        clearTimeout(timer);
+        cleanup();
+      }, { once: true });
     }
 
     contains(target) {
@@ -750,12 +898,14 @@
         dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
       });
 
-      // 点击其他地方关闭下拉菜单
+      // 点击其他地方关闭下拉菜单（绑定 AbortController，close() 时自动移除）
+      const ac = new AbortController();
+      this._pinDropdownAbort = ac;
       document.addEventListener('click', (e) => {
         if (!pinContainer.contains(e.target)) {
           dropdown.style.display = 'none';
         }
-      });
+      }, { signal: ac.signal });
 
       pinContainer.appendChild(btnPin);
       pinContainer.appendChild(dropdown);
@@ -766,7 +916,10 @@
       btnClose.className = `${NS}-header-btn`;
       btnClose.title = '关闭';
       btnClose.innerHTML = SVG_CLOSE;
-      btnClose.addEventListener('click', (e) => { e.stopPropagation(); this.close(); });
+      btnClose.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.close();
+      });
 
       header.appendChild(logo);
       header.appendChild(title);
@@ -808,7 +961,7 @@
       if (this._panelsManager) {
         if (mode !== 'unpinned' && oldMode === 'unpinned') {
           // 从未钉住变为钉住
-          this._panelsManager.onPanelPinned(this.id, mode);
+          this._panelsManager.onPanelPinned(this.id);
         } else if (mode === 'unpinned' && oldMode !== 'unpinned') {
           // 从钉住变为未钉住
           this._panelsManager.onPanelUnpinned(this.id);
@@ -844,10 +997,11 @@
     // ── API 请求 ────────────────────────────────────────────────────────────
 
     _fetchAll() {
-      Object.keys(this._cards).forEach((id) => {
-        this._fetchModel(id, 'translate');
-        this._fetchModel(id, 'explain');
-      });
+      // deepseek：combined 双效合一（单次请求返回翻译+解释）
+      this._fetchModel('deepseek', 'combined');
+      // qwen：分两次请求，保留原有逻辑
+      this._fetchModel('qwen', 'translate');
+      this._fetchModel('qwen', 'explain');
     }
 
     _fetchModel(modelId, action) {
@@ -1031,8 +1185,10 @@
     }
 
     // ── mouseup：核心拦截器 + 触发器 ──────────────────────────────────────
-
     _onUp(e) {
+      // 检查点击是否发生在面板内部，如果是则立即返回，不触发新的划词逻辑
+      if (e.target.closest('.my-ext-panel')) return;
+
       // 若 mousedown 落在小图标上，由图标自身的 click 处理，此处忽略
       if (this._downOnIcon) return;
 
@@ -1041,6 +1197,7 @@
         pageX: e.pageX, pageY: e.pageY,
         ctrlKey: e.ctrlKey, altKey: e.altKey,
         shiftKey: e.shiftKey, metaKey: e.metaKey,
+        target: e.target,
       };
 
       setTimeout(() => {
@@ -1049,14 +1206,15 @@
 
         if (text.length < 1 || text.length > 500) {
           // 没有有效选中文本
-          if (!this._app.panel.isOpen) this._app.icon.hide();
+          if (!this._app.panels.activePanel?.isOpen) this._app.icon.hide();
           return;
         }
 
         // ── 拦截器 1：输入框/代码编辑器检测 ──
         if (this._app.config.get('disableInInputs')) {
           const anchor = sel.anchorNode?.parentElement;
-          if (InputBoxDetector.isInside(anchor)) return;
+          const target = capturedE.target;
+          if (InputBoxDetector.isInside(anchor) || InputBoxDetector.isInside(target)) return;
         }
 
         // ── 拦截器 2：语言匹配检测 ──
@@ -1080,19 +1238,16 @@
         const action = this._app.trigger.evaluate(scenario, capturedE, this._isDblClick);
 
         if (action === 'direct') {
-          // 多面板逻辑：检查活动面板
-          const activePanel = this._app.panels.activePanel;
-          const hasPinnedPanels = this._app.panels.pinnedPanels.length > 0;
+          // 始终先隐藏图标，直接搜索不经过小图标阶段
+          this._app.icon.hide();
 
-          if (activePanel && activePanel.isOpen && !hasPinnedPanels) {
-            // 有活动面板且没有钉住面板：更新活动面板
+          const activePanel = this._app.panels.activePanel;
+
+          if (activePanel?.isOpen) {
+            // 已有活动面板：原地更新文本，发起新请求，不移动面板位置
             activePanel._updateText(text);
-            const clamped = activePanel._clamp(capturedE.pageX, capturedE.pageY);
-            activePanel.el.style.left = `${clamped.left}px`;
-            activePanel.el.style.top = `${clamped.top}px`;
           } else {
-            // 其他情况：创建新的活动面板
-            this._app.icon.hide();
+            // 无活动面板：创建新面板（已有 pinned 面板时也创建新的）
             this._app.panels.createActivePanel(text, { x: capturedE.pageX, y: capturedE.pageY });
           }
         } else if (action === 'icon') {
@@ -1130,7 +1285,7 @@
     _onKey(e) {
       if (e.key === 'Escape') {
         this._app.icon.hide();
-        this._app.panel.close();
+        this._app.panels.closeUnpinned();
       }
     }
 
@@ -1243,20 +1398,17 @@
     }
 
     // 面板被钉住时的回调
-    onPanelPinned(panelId, pinMode) {
+    onPanelPinned(panelId) {
       const panel = this._panels.get(panelId);
       if (!panel) return;
 
-      // 从活动面板列表中移除
+      // 从活动面板移除（_setPinMode 已设置 panel.pinMode，此处不再重复）
       if (this._activePanel?.id === panelId) {
         this._activePanel = null;
       }
 
       // 添加到钉住面板集合
       this._pinnedPanels.add(panelId);
-
-      // 设置钉住模式
-      panel.pinMode = pinMode;
     }
 
     // 面板被取消钉住时的回调
