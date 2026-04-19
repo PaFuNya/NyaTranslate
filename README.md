@@ -43,12 +43,10 @@
 *蓝白色主题，侧边栏滑入动画，卡片淡入效果喵~*
 
 ### 划词翻译
-![划词翻译](https://via.placeholder.com/800x450/3a8eef/ffffff?text=划词翻译演示+喵~)
+<img width="498" height="408" alt="image" src="https://github.com/user-attachments/assets/01823626-c5bb-40ed-b150-234a0d161c41" />
+
 *在网页上划选文字，弹出翻译面板喵~*
 
-### 弹出窗口
-![弹出窗口](https://via.placeholder.com/400x600/5b6af0/ffffff?text=弹出窗口+喵~)
-*扩展图标点击后的快速操作面板喵~*
 
 > **提示**：以上为占位图片，实际使用时请替换为真实截图喵~
 
