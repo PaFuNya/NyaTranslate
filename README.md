@@ -1,6 +1,10 @@
 # 🐱 NyaTranslate-喵译
 
 <p align="center">
+  <a href="./README_EN.md">English</a>
+</p>
+
+<p align="center">
   <strong>AI驱动的翻译与术语解释Chrome扩展 | 猫娘主题 · 精美动画 · 优雅体验</strong>
 </p>
 
@@ -60,26 +64,10 @@
 5. **加载扩展**：点击"加载已解压的扩展程序"按钮
 6. **选择文件夹**：选择刚才解压的文件夹
 7. **完成**：扩展已成功加载，可以在任意网页上使用喵~
-
-### 方法二：开发者模式（代码贡献者）
-```bash
-# 克隆仓库
-git clone https://github.com/your-username/NyaTranslate.git
-
-# 进入项目目录
-cd NyaTranslate
-
-# 安装依赖（如果有的话）
-# npm install
-
-# 在Chrome中加载
-# 打开 chrome://extensions/ → 开启开发者模式 → 加载已解压的扩展程序 → 选择当前目录
 ```
 
 ### 系统要求
 - **Chrome 浏览器**：版本 88 或更高（支持 Manifest V3）
-- **操作系统**：Windows 10/11, macOS 10.15+, Linux
-- **网络连接**：需要访问 DeepSeek 或 通义千问 API
 
 ## 🎮 使用指南
 
@@ -171,30 +159,6 @@ NyaTranslate/
 └── style.css                  # 悬浮面板样式
 ```
 
-### 开发环境搭建
-1. **克隆代码**：`git clone https://github.com/your-username/NyaTranslate.git`
-2. **修改代码**：使用 VS Code 或其他编辑器
-3. **实时测试**：在 Chrome 中重新加载扩展即可看到更改
-4. **调试工具**：使用 Chrome 开发者工具进行调试
-
-### 构建与发布
-项目包含 GitHub Actions 自动发布流程：
-```yaml
-# .github/workflows/release.yml
-on:
-  release:
-    types: [published]
-  push:
-    tags:
-      - 'v*'
-```
-
-发布新版本步骤：
-1. 更新 `manifest.json` 中的版本号
-2. 更新 `CHANGELOG.md` 记录更改
-3. 创建 Git 标签：`git tag -a v2.0.0 -m "发布 v2.0.0"`
-4. 推送标签：`git push origin v2.0.0`
-5. 在 GitHub 创建 Release
 
 ## 🤝 贡献指南
 
@@ -212,14 +176,6 @@ on:
 - **测试**：确保更改不会破坏现有功能
 - **文档**：更新相关文档以反映更改
 
-### 待开发功能
-- [ ] 暗色模式支持
-- [ ] 翻译历史记录
-- [ ] 多语言界面
-- [ ] 离线缓存
-- [ ] 浏览器同步
-- [ ] 更多 AI 模型支持
-
 ## 📄 许可证
 
 本项目采用 [MIT 许可证](LICENSE)。
@@ -233,23 +189,11 @@ Permission is hereby granted, free of charge, to any person obtaining a copy
 ...
 ```
 
-## 🙏 致谢
-
-感谢以下项目和服务：
-- **Chrome Extensions API**：提供强大的浏览器扩展能力
-- **DeepSeek**：提供优质的免费 AI 翻译服务
-- **通义千问**：阿里云的优秀大语言模型
-- **所有贡献者**：感谢每一位为项目做出贡献的朋友
-
-## 📞 联系与支持
-
 - **问题反馈**：[GitHub Issues](https://github.com/your-username/NyaTranslate/issues)
 - **功能建议**：在 Issues 中提出
 - **代码贡献**：提交 Pull Request
-- **使用帮助**：查阅本文档或 Issues 中的常见问题
 
 ---
-
 <p align="center">
   Made with ❤️ and 🐱 by NyaTranslate Team
 </p>
