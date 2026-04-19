@@ -1,22 +1,16 @@
 # 🐱 NyaTranslate-喵译
 
 <p align="center">
+  <a href="./README_EN.md">English</a>
+</p>
+
+<p align="center">
   <strong>AI驱动的翻译与术语解释Chrome扩展 | 猫娘主题 · 精美动画 · 优雅体验</strong>
 </p>
 
-<p align="center">
-  <a href="#特性">特性</a> •
-  <a href="#安装">安装</a> •
-  <a href="#使用指南">使用指南</a> •
-  <a href="#配置">配置</a> •
-  <a href="#开发">开发</a> •
-  <a href="#贡献">贡献</a>
-</p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/版本-v2.0.0-blue" alt="版本">
   <img src="https://img.shields.io/badge/Manifest-V3-green" alt="Manifest V3">
-  <img src="https://img.shields.io/badge/语言-中文-red" alt="语言">
   <img src="https://img.shields.io/badge/许可-MIT-yellow" alt="许可证">
 </p>
 
@@ -29,29 +23,8 @@
 - **智能划词翻译**：在任意网页划选文字，即刻获得翻译结果
 - **专业术语解释**：获取选中文档的详细解释和上下文含义
 - **双AI引擎支持**：DeepSeek 与 通义千问 双重支持，智能切换
-- **猫娘主题界面**：蓝白色渐变主题，所有文本都添加了可爱的"喵~"后缀
-- **精美动画效果**：8种CSS动画，带来流畅的视觉体验
-- **完全可配置**：多种触发方式、语言匹配、个性化设置
 
 ## 🚀 特性
-
-### 🎨 **视觉体验**
-- **蓝白色渐变主题**：清新优雅的色彩搭配，护眼舒适
-- **毛玻璃效果卡片**：现代感十足的 UI 设计
-- **居中响应式布局**：完美适配各种屏幕尺寸
-- **猫娘化文本**：所有提示和说明都添加了"喵~"后缀，萌感十足
-
-### 🎭 **动画效果**
-| 动画名称 | 效果描述 | 应用位置 |
-|---------|---------|---------|
-| `slideInLeft` | 侧边栏滑入 | 左侧导航栏 |
-| `pulse` | 脉冲发光 | Logo图标 |
-| `cardFadeIn` | 卡片淡入 | 设置卡片 |
-| `titleGlow` | 标题发光 | Section标题 |
-| `bounce` | 弹跳效果 | Toast通知图标 |
-| `float` | 浮动动画 | 关于页Logo |
-| `checkPop` | 复选框弹跳 | 勾选框 |
-| `shimmer` | 光泽扫过 | 提示卡片 |
 
 ### ⚡ **核心功能**
 - **多种触发方式**：图标点击、双击文字、组合键等
@@ -69,18 +42,16 @@
 ## 📸 截图展示
 
 ### 设置页面
-![设置页面](https://via.placeholder.com/800x450/4a9eff/ffffff?text=NyaTranslate+设置页面+喵~)
+<img width="1223" height="886" alt="image" src="https://github.com/user-attachments/assets/272d2534-c610-4251-9d3d-55e87fc98438" />
+
 *蓝白色主题，侧边栏滑入动画，卡片淡入效果喵~*
 
 ### 划词翻译
-![划词翻译](https://via.placeholder.com/800x450/3a8eef/ffffff?text=划词翻译演示+喵~)
+<img width="498" height="408" alt="image" src="https://github.com/user-attachments/assets/01823626-c5bb-40ed-b150-234a0d161c41" />
+
 *在网页上划选文字，弹出翻译面板喵~*
 
-### 弹出窗口
-![弹出窗口](https://via.placeholder.com/400x600/5b6af0/ffffff?text=弹出窗口+喵~)
-*扩展图标点击后的快速操作面板喵~*
 
-> **提示**：以上为占位图片，实际使用时请替换为真实截图喵~
 
 ## 📦 安装指南
 
@@ -92,26 +63,10 @@
 5. **加载扩展**：点击"加载已解压的扩展程序"按钮
 6. **选择文件夹**：选择刚才解压的文件夹
 7. **完成**：扩展已成功加载，可以在任意网页上使用喵~
-
-### 方法二：开发者模式（代码贡献者）
-```bash
-# 克隆仓库
-git clone https://github.com/your-username/NyaTranslate.git
-
-# 进入项目目录
-cd NyaTranslate
-
-# 安装依赖（如果有的话）
-# npm install
-
-# 在Chrome中加载
-# 打开 chrome://extensions/ → 开启开发者模式 → 加载已解压的扩展程序 → 选择当前目录
 ```
 
 ### 系统要求
 - **Chrome 浏览器**：版本 88 或更高（支持 Manifest V3）
-- **操作系统**：Windows 10/11, macOS 10.15+, Linux
-- **网络连接**：需要访问 DeepSeek 或 通义千问 API
 
 ## 🎮 使用指南
 
@@ -203,30 +158,6 @@ NyaTranslate/
 └── style.css                  # 悬浮面板样式
 ```
 
-### 开发环境搭建
-1. **克隆代码**：`git clone https://github.com/your-username/NyaTranslate.git`
-2. **修改代码**：使用 VS Code 或其他编辑器
-3. **实时测试**：在 Chrome 中重新加载扩展即可看到更改
-4. **调试工具**：使用 Chrome 开发者工具进行调试
-
-### 构建与发布
-项目包含 GitHub Actions 自动发布流程：
-```yaml
-# .github/workflows/release.yml
-on:
-  release:
-    types: [published]
-  push:
-    tags:
-      - 'v*'
-```
-
-发布新版本步骤：
-1. 更新 `manifest.json` 中的版本号
-2. 更新 `CHANGELOG.md` 记录更改
-3. 创建 Git 标签：`git tag -a v2.0.0 -m "发布 v2.0.0"`
-4. 推送标签：`git push origin v2.0.0`
-5. 在 GitHub 创建 Release
 
 ## 🤝 贡献指南
 
@@ -244,14 +175,6 @@ on:
 - **测试**：确保更改不会破坏现有功能
 - **文档**：更新相关文档以反映更改
 
-### 待开发功能
-- [ ] 暗色模式支持
-- [ ] 翻译历史记录
-- [ ] 多语言界面
-- [ ] 离线缓存
-- [ ] 浏览器同步
-- [ ] 更多 AI 模型支持
-
 ## 📄 许可证
 
 本项目采用 [MIT 许可证](LICENSE)。
@@ -265,23 +188,10 @@ Permission is hereby granted, free of charge, to any person obtaining a copy
 ...
 ```
 
-## 🙏 致谢
-
-感谢以下项目和服务：
-- **Chrome Extensions API**：提供强大的浏览器扩展能力
-- **DeepSeek**：提供优质的免费 AI 翻译服务
-- **通义千问**：阿里云的优秀大语言模型
-- **所有贡献者**：感谢每一位为项目做出贡献的朋友
-
-## 📞 联系与支持
-
-- **问题反馈**：[GitHub Issues](https://github.com/your-username/NyaTranslate/issues)
 - **功能建议**：在 Issues 中提出
 - **代码贡献**：提交 Pull Request
-- **使用帮助**：查阅本文档或 Issues 中的常见问题
 
 ---
-
 <p align="center">
   Made with ❤️ and 🐱 by NyaTranslate Team
 </p>
