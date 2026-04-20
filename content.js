@@ -73,6 +73,8 @@
       },
     },
     preferredAction: 'translate',
+    models: [],
+    appearance: { ...NyaAppearance.DEFAULT },
   };
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -88,6 +90,7 @@
       return new Promise((resolve) => {
         chrome.storage.local.get(null, (stored) => {
           this.data = this._deepMerge(DEFAULT_CONFIG, stored || {});
+          this.data.appearance = NyaAppearance.mergeAppearance({ appearance: this.data.appearance });
           resolve(this.data);
         });
       });
@@ -236,7 +239,7 @@
 
     _down(e) {
       if (e.button !== 0) return;
-      if (e.target.closest('button')) return;
+      if (e.target.closest('button') || e.target.closest('select')) return;
       e.preventDefault();
       e.stopPropagation();
 
@@ -367,7 +370,7 @@
     constructor(modelId, modelLabel) {
       this.modelId = modelId;
       this.label = modelLabel;
-      this._useCombined = (modelId === 'deepseek');
+      this._useCombined = true;
       this.state = {
         translate: { status: 'idle', content: '' },
         explain: { status: 'idle', content: '' },
@@ -397,6 +400,7 @@
       const badge = document.createElement('span');
       badge.className = `${NS}-accordion-badge ${NS}-accordion-badge--${this.modelId}`;
       badge.textContent = this.label;
+      this._badgeEl = badge;
 
       this._dot = document.createElement('span');
       this._dot.className = `${NS}-accordion-dot`;
@@ -431,6 +435,11 @@
       this._open = true;
       this._body.classList.add(`${NS}-accordion-body--open`);
       this._chevron.classList.add(`${NS}-accordion-chevron--up`);
+    }
+
+    setLabel(label) {
+      this.label = label;
+      if (this._badgeEl) this._badgeEl.textContent = label;
     }
 
     setLoading(action) {
@@ -710,6 +719,8 @@
     constructor() {
       this.el = null;
       this.onOpen = null;
+      /** @type {() => Record<string, unknown>} */
+      this._getConfigData = null;
     }
 
     show(x, y) {
@@ -723,6 +734,13 @@
       const pos = this._clamp(x + 12, y + 12);
       this.el.style.left = `${pos.left}px`;
       this.el.style.top = `${pos.top}px`;
+
+      if (typeof this._getConfigData === 'function') {
+        NyaAppearance.applyToContentRoot(
+          this.el,
+          NyaAppearance.mergeAppearance({ appearance: this._getConfigData().appearance })
+        );
+      }
 
       this.el.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -777,6 +795,10 @@
       this._pinDropdown = null;
       this._pinDropdownAbort = null;
       this._selectedText = '';
+      this._modelSelect = null;
+      this._selectedModelId = '';
+      this._selectedProvider = 'openai';
+      this._modelSelectMs = null;
     }
 
     get isPinned() { return this.pinMode !== 'unpinned'; }
@@ -794,6 +816,7 @@
       this.el.style.top = `${clamped.top}px`;
 
       document.body.appendChild(this.el);
+      this._refreshModelSelect();
       requestAnimationFrame(() => this.el?.classList.add(`${NS}-panel--visible`));
 
       const pref = this._config.get('preferredAction');
@@ -804,6 +827,11 @@
 
     close() {
       if (!this.el) return;
+
+      if (this._modelSelectMs) {
+        this._modelSelectMs.destroy();
+        this._modelSelectMs = null;
+      }
 
       const el = this.el;
       this.el = null;
@@ -865,6 +893,11 @@
       panel.appendChild(this._buildAccordionWrap());
       panel.appendChild(this._buildResizeHandle());
 
+      NyaAppearance.applyToContentRoot(
+        panel,
+        NyaAppearance.mergeAppearance({ appearance: this._config.get('appearance') })
+      );
+
       this._drag = new DragController(panel, panel.querySelector(`.${NS}-panel-header`), () => this._onDragEnd());
       this._resize = new ResizeController(panel, panel.querySelector(`.${NS}-resize-handle`), {
         minWidth: 300,
@@ -885,6 +918,12 @@
       const title = document.createElement('span');
       title.className = `${NS}-panel-title`;
       title.textContent = 'NyaTransalte';
+
+      this._modelSelect = document.createElement('select');
+      this._modelSelect.className = `${NS}-panel-model-select`;
+      this._modelSelect.title = '选择模型';
+      this._modelSelect.addEventListener('click', (e) => e.stopPropagation());
+      this._modelSelect.addEventListener('change', () => this._onModelSelectChange());
 
       const spacer = document.createElement('div');
       spacer.className = `${NS}-panel-spacer`;
@@ -964,6 +1003,7 @@
 
       header.appendChild(logo);
       header.appendChild(title);
+      header.appendChild(this._modelSelect);
       header.appendChild(spacer);
       header.appendChild(this._preview);
       header.appendChild(pinContainer);
@@ -982,17 +1022,13 @@
       const wrap = document.createElement('div');
       wrap.className = `${NS}-accordion-wrap`;
 
-      const MODELS = [
-        { id: 'deepseek', label: 'DeepSeek' },
-        { id: 'qwen', label: '通义千问' },
-      ];
-
-      MODELS.forEach(({ id, label }) => {
-        const card = new AccordionCard(id, label);
-        card.onFetch = (modelId, action) => this._fetchModel(modelId, action);
-        this._cards[id] = card;
-        wrap.appendChild(card.el);
-      });
+      const enabled = this._getEnabledModels();
+      const first = enabled[0];
+      const modelLabel = (first && (first.displayName || first.modelId)) || 'AI 翻译';
+      const card = new AccordionCard('primary', modelLabel);
+      card.onFetch = (_, action) => this._fetchModel('primary', action);
+      this._cards['primary'] = card;
+      wrap.appendChild(card.el);
 
       return wrap;
     }
@@ -1077,25 +1113,123 @@
       // 拖拽结束后无需特殊处理，位置已由 DragController 更新
     }
 
-    _fetchAll() {
-      this._fetchModel('deepseek', 'combined');
-      this._fetchModel('qwen', 'translate');
-      this._fetchModel('qwen', 'explain');
+    _normalizeModelRow(m) {
+      if (!m) return null;
+      if (m.modelId != null && (m.protocol === 'openai' || m.protocol === 'anthropic')) {
+        return {
+          ...m,
+          displayName: m.displayName || m.modelId,
+          modelId: m.modelId,
+          protocol: m.protocol,
+        };
+      }
+      const pid = String(m.id || '').trim();
+      if (!pid) return null;
+      return {
+        id: pid,
+        modelId: pid,
+        displayName: pid,
+        protocol: m.provider === 'anthropic' ? 'anthropic' : 'openai',
+        enabled: m.enabled !== false,
+      };
     }
 
-    _fetchModel(modelId, action) {
-      const card = this._cards[modelId];
+    _getEnabledModels() {
+      const models = this._config.get('models');
+      if (!Array.isArray(models)) return [];
+      return models
+        .map((m) => this._normalizeModelRow(m))
+        .filter((m) => m && m.enabled);
+    }
+
+    _refreshModelSelect() {
+      if (!this._modelSelect) return;
+      if (this._modelSelectMs) {
+        this._modelSelectMs.destroy();
+        this._modelSelectMs = null;
+      }
+
+      const list = this._getEnabledModels();
+      this._modelSelect.innerHTML = '';
+
+      if (list.length === 0) {
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.textContent = '无可用模型';
+        this._modelSelect.appendChild(opt);
+        this._modelSelect.disabled = true;
+        this._selectedModelId = '';
+        this._selectedProvider = 'openai';
+        this._cards.primary?.setLabel('—');
+        if (typeof MaterialSelect !== 'undefined') {
+          this._modelSelectMs = new MaterialSelect(this._modelSelect, { compact: true });
+        }
+        return;
+      }
+
+      this._modelSelect.disabled = false;
+      let keepIdx = -1;
+      list.forEach((m, i) => {
+        const opt = document.createElement('option');
+        opt.value = m.id;
+        opt.textContent = m.displayName || m.modelId || m.id;
+        opt.dataset.modelId = m.id;
+        opt.dataset.provider = m.protocol === 'anthropic' ? 'anthropic' : 'openai';
+        if (m.id === this._selectedModelId) keepIdx = i;
+        this._modelSelect.appendChild(opt);
+      });
+
+      const idx = keepIdx >= 0 ? keepIdx : 0;
+      this._modelSelect.selectedIndex = idx;
+      const picked = list[idx];
+      this._selectedModelId = picked.id;
+      this._selectedProvider = picked.protocol === 'anthropic' ? 'anthropic' : 'openai';
+      const label = picked.displayName || picked.modelId || picked.id;
+      this._cards.primary?.setLabel(label);
+
+      if (typeof MaterialSelect !== 'undefined') {
+        this._modelSelectMs = new MaterialSelect(this._modelSelect, { compact: true });
+      }
+    }
+
+    _onModelSelectChange() {
+      const opt = this._modelSelect?.selectedOptions[0];
+      if (!opt || !opt.dataset.modelId) return;
+      this._selectedModelId = opt.dataset.modelId;
+      this._selectedProvider = opt.dataset.provider === 'anthropic' ? 'anthropic' : 'openai';
+      this._cards.primary?.setLabel(opt.textContent || this._selectedModelId);
+      Object.values(this._cards).forEach((c) => c.reset());
+      const pref = this._config.get('preferredAction');
+      if (pref && pref !== 'none') {
+        this._fetchAll();
+      }
+    }
+
+    _fetchAll() {
+      // 单模型，发送一次 combined 请求即可
+      this._fetchModel('primary', 'combined');
+    }
+
+    _fetchModel(cardId, action) {
+      const card = this._cards[cardId];
       if (!card) return;
 
       card.setLoading(action);
       chrome.runtime.sendMessage(
-        { action, text: this._selectedText, model: modelId },
+        {
+          action,
+          text: this._selectedText,
+          targetModelId: this._selectedModelId,
+        },
         (response) => {
           if (!this.isOpen) return;
           if (chrome.runtime.lastError) {
             card.setError(action, '无法连接扩展后台，请在 chrome://extensions 页面重新加载扩展。');
           } else if (response?.success) {
             card.setResult(action, response.result);
+          } else if (response?.notConfigured) {
+            // 未配置时显示引导性提示，非红色报错
+            card.setError(action, response.error || '请先在设置页配置 API Key 和模型 ID 喵~');
           } else {
             card.setError(action, response?.error ?? '请求失败，请稍后重试。');
           }
@@ -1303,6 +1437,21 @@
         }
       }
     }
+
+    refreshModelSelectsFromConfig() {
+      for (const panel of this._panels.values()) {
+        panel._refreshModelSelect?.();
+      }
+    }
+
+    refreshAppearanceFromConfig() {
+      const a = NyaAppearance.mergeAppearance({ appearance: this._config.get('appearance') });
+      for (const panel of this._panels.values()) {
+        if (panel.el) {
+          NyaAppearance.applyToContentRoot(panel.el, a);
+        }
+      }
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1454,22 +1603,402 @@
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
+  //  VisionResultPanel — 视觉翻译结果悬浮面板
+  //  职责：接收 background 返回的视觉识别+翻译结果，在指定位置展示
+  //  与普通 PanelInstance 独立，不参与 PanelManager 生命周期
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  class VisionResultPanel {
+    constructor(getConfigData) {
+      this._el   = null;
+      this._drag = null;
+      /** @type {() => Record<string, unknown>} */
+      this._getConfigData = getConfigData || null;
+    }
+
+    _applyAppearance(el) {
+      if (!el || typeof this._getConfigData !== 'function') return;
+      NyaAppearance.applyToContentRoot(
+        el,
+        NyaAppearance.mergeAppearance({ appearance: this._getConfigData().appearance })
+      );
+    }
+
+    /** 展示加载中状态（固定在右上角） */
+    showLoading() {
+      this._close();
+      const panel = this._createBase();
+      panel.style.cssText += ';position:fixed;right:24px;top:80px;width:220px;';
+
+      const loader = document.createElement('div');
+      loader.className = `${NS}-loading`;
+
+      const spinner = document.createElement('div');
+      spinner.className = `${NS}-spinner`;
+
+      const txt = document.createElement('span');
+      txt.className   = `${NS}-loading-text`;
+      txt.textContent = '视觉识别中…';
+
+      loader.appendChild(spinner);
+      loader.appendChild(txt);
+      panel.appendChild(loader);
+      this._applyAppearance(panel);
+      this._mount(panel, null);
+    }
+
+    /** 展示识别+翻译结果 */
+    show(result, modelLabel, pos) {
+      this._close();
+      const panel = this._createBase();
+
+      // ── 头部 ──
+      const header = document.createElement('div');
+      header.className = `${NS}-panel-header`;
+
+      const logo = document.createElement('div');
+      logo.className = `${NS}-panel-logo`;
+      logo.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
+
+      const title = document.createElement('span');
+      title.className   = `${NS}-panel-title`;
+      title.textContent = '视觉翻译';
+
+      const badge = document.createElement('span');
+      badge.className = `${NS}-vision-badge`;
+      badge.textContent = modelLabel || '视觉模型';
+
+      const spacer = document.createElement('div');
+      spacer.className = `${NS}-panel-spacer`;
+
+      const closeBtn = document.createElement('button');
+      closeBtn.className = `${NS}-header-btn`;
+      closeBtn.title     = '关闭';
+      closeBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+      closeBtn.addEventListener('click', () => this._close());
+
+      header.appendChild(logo);
+      header.appendChild(title);
+      header.appendChild(badge);
+      header.appendChild(spacer);
+      header.appendChild(closeBtn);
+
+      // ── 结果内容区 ──
+      const body = document.createElement('div');
+      body.style.cssText = 'padding:12px 14px;overflow-y:auto;max-height:380px;';
+
+      const resultBody = document.createElement('div');
+      resultBody.className   = `${NS}-result-body`;
+      resultBody.style.cssText = 'white-space:pre-wrap;font-size:13px;line-height:1.75;';
+      resultBody.textContent   = result;
+
+      const footer = document.createElement('div');
+      footer.className   = `${NS}-result-footer`;
+      footer.style.cssText = 'padding:6px 0 4px;';
+
+      const copyBtn = document.createElement('button');
+      copyBtn.className   = `${NS}-btn ${NS}-btn--ghost`;
+      copyBtn.textContent = '📋 复制';
+      copyBtn.addEventListener('click', () => {
+        navigator.clipboard.writeText(result).then(() => {
+          copyBtn.textContent = '✅ 已复制';
+          setTimeout(() => { copyBtn.textContent = '📋 复制'; }, 1500);
+        }).catch(() => {
+          copyBtn.textContent = '❌ 失败';
+          setTimeout(() => { copyBtn.textContent = '📋 复制'; }, 1500);
+        });
+      });
+
+      footer.appendChild(copyBtn);
+      body.appendChild(resultBody);
+      body.appendChild(footer);
+
+      panel.appendChild(header);
+      panel.appendChild(body);
+      this._applyAppearance(panel);
+      this._mount(panel, pos);
+
+      // 添加可拖拽支持
+      this._drag = new DragController(panel, header, () => {});
+    }
+
+    /** 展示错误信息（5 秒后自动关闭） */
+    showError(msg) {
+      if (this._el) {
+        const errDiv = document.createElement('div');
+        errDiv.className   = `${NS}-error`;
+        errDiv.style.cssText = 'padding:12px 14px;font-size:13px;';
+        errDiv.textContent   = `⚠️ ${msg}`;
+
+        this._el.innerHTML = '';
+        this._el.appendChild(errDiv);
+        requestAnimationFrame(() => this._el?.classList.add(`${NS}-panel--visible`));
+
+        setTimeout(() => this._close(), 5000);
+      }
+    }
+
+    _createBase() {
+      const panel = document.createElement('div');
+      panel.className = `${NS}-panel`;
+      return panel;
+    }
+
+    _mount(panel, pos) {
+      // 定位（fixed 模式，不随页面滚动）
+      panel.style.position = 'fixed';
+
+      if (pos) {
+        const vw = document.documentElement.clientWidth;
+        const vh = window.innerHeight;
+        const pw = 360, ph = 300;
+        // pos 是页面坐标（pageX/pageY），转换为视口坐标
+        let left = pos.x - window.scrollX + 12;
+        let top  = pos.y - window.scrollY + 8;
+
+        if (left + pw > vw - 8)  left = vw - pw - 8;
+        if (left < 8)            left = 8;
+        if (top  + ph > vh - 8)  top  = (pos.y - window.scrollY) - ph - 8;
+        if (top  < 8)            top  = 8;
+
+        panel.style.left = `${left}px`;
+        panel.style.top  = `${top}px`;
+      } else {
+        panel.style.right = '24px';
+        panel.style.top   = '80px';
+      }
+
+      document.body.appendChild(panel);
+      requestAnimationFrame(() => panel?.classList.add(`${NS}-panel--visible`));
+      this._el = panel;
+    }
+
+    _close() {
+      if (!this._el) return;
+      const el = this._el;
+      this._el = null;
+      this._drag?.destroy();
+      this._drag = null;
+
+      el.classList.remove(`${NS}-panel--visible`);
+      const t = setTimeout(() => el.remove(), 220);
+      el.addEventListener('transitionend', () => { clearTimeout(t); el.remove(); }, { once: true });
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  ScreenshotOverlay — 全屏截图框选遮罩
+  //  流程：
+  //    1. 接收 background 传来的当前视口截图（dataURL）
+  //    2. 在全屏 Canvas 上绘制半透明灰色遮罩
+  //    3. 用户拖拽绘制选区（白色描边矩形 + 镂空）
+  //    4. 松鼠标时用 OffscreenCanvas 裁剪图像 → Base64
+  //    5. sendMessage → background（nya-vision-crop）→ 视觉 API
+  //    6. 销毁自身
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  class ScreenshotOverlay {
+    constructor(screenshotDataUrl) {
+      this._dataUrl    = screenshotDataUrl;
+      this._canvas     = null;
+      this._ctx        = null;
+      this._img        = null;
+      this._dragging   = false;
+      this._startX     = 0;
+      this._startY     = 0;
+      this._endX       = 0;
+      this._endY       = 0;
+
+      this._onDown = this._onDown.bind(this);
+      this._onMove = this._onMove.bind(this);
+      this._onUp   = this._onUp.bind(this);
+      this._onKey  = this._onKey.bind(this);
+    }
+
+    mount() {
+      const canvas  = document.createElement('canvas');
+      canvas.width  = window.innerWidth;
+      canvas.height = window.innerHeight;
+      canvas.style.cssText = [
+        'position:fixed',
+        'inset:0',
+        'z-index:2147483647',
+        'cursor:crosshair',
+        'display:block',
+      ].join(';');
+
+      this._canvas = canvas;
+      this._ctx    = canvas.getContext('2d');
+
+      // 预加载截图图像，加载完成后挂载 Canvas 并绑定事件
+      const img  = new Image();
+      img.onload = () => {
+        this._img = img;
+        this._draw(null);
+
+        document.body.appendChild(canvas);
+
+        canvas.addEventListener('mousedown', this._onDown);
+        canvas.addEventListener('mousemove', this._onMove);
+        canvas.addEventListener('mouseup',   this._onUp);
+        document.addEventListener('keydown', this._onKey);
+      };
+      img.src = this._dataUrl;
+    }
+
+    /** 绘制遮罩；selRect 不为 null 时额外绘制选区矩形 */
+    _draw(selRect) {
+      const { width: cw, height: ch } = this._canvas;
+      const ctx = this._ctx;
+
+      // 先把截图画作背景
+      ctx.drawImage(this._img, 0, 0, cw, ch);
+
+      // 半透明灰色全屏遮罩
+      ctx.fillStyle = 'rgba(0,0,0,0.42)';
+      ctx.fillRect(0, 0, cw, ch);
+
+      if (selRect && selRect.width > 0 && selRect.height > 0) {
+        const { x, y, width: sw, height: sh } = selRect;
+
+        // 镂空选区——重绘原图对应区域，营造清晰窗口感
+        ctx.drawImage(this._img, x, y, sw, sh, x, y, sw, sh);
+
+        // 白色描边
+        ctx.strokeStyle = 'rgba(255,255,255,0.92)';
+        ctx.lineWidth   = 1.5;
+        ctx.strokeRect(x + 0.5, y + 0.5, sw - 1, sh - 1);
+
+        // 四角白色小圆点
+        const corners = [[x, y], [x + sw, y], [x, y + sh], [x + sw, y + sh]];
+        ctx.fillStyle = '#ffffff';
+        corners.forEach(([cx, cy]) => {
+          ctx.beginPath();
+          ctx.arc(cx, cy, 4, 0, Math.PI * 2);
+          ctx.fill();
+        });
+
+        // 选区尺寸标注
+        const sizeLabel = `${Math.round(sw)} × ${Math.round(sh)}`;
+        ctx.font      = 'bold 11px -apple-system,sans-serif';
+        ctx.fillStyle = 'rgba(255,255,255,0.9)';
+        const labelY  = y > 20 ? y - 6 : y + sh + 14;
+        ctx.fillText(sizeLabel, x + 4, labelY);
+      }
+
+      // 顶部操作提示
+      ctx.font      = '12px -apple-system,sans-serif';
+      ctx.fillStyle = 'rgba(255,255,255,0.72)';
+      ctx.fillText('拖拽鼠标框选区域    按 Esc 取消', 12, 20);
+    }
+
+    _onDown(e) {
+      this._dragging = true;
+      this._startX   = e.clientX;
+      this._startY   = e.clientY;
+      this._endX     = e.clientX;
+      this._endY     = e.clientY;
+    }
+
+    _onMove(e) {
+      if (!this._dragging) return;
+      this._endX = e.clientX;
+      this._endY = e.clientY;
+      this._draw(this._selRect());
+    }
+
+    _onUp(e) {
+      if (!this._dragging) return;
+      this._dragging = false;
+      this._endX     = e.clientX;
+      this._endY     = e.clientY;
+
+      const rect = this._selRect();
+      this._destroy();
+
+      // 太小的框选忽略
+      if (rect.width < 10 || rect.height < 10) return;
+
+      this._cropAndSend(rect);
+    }
+
+    _onKey(e) {
+      if (e.key === 'Escape') this._destroy();
+    }
+
+    _selRect() {
+      return {
+        x:      Math.min(this._startX, this._endX),
+        y:      Math.min(this._startY, this._endY),
+        width:  Math.abs(this._endX - this._startX),
+        height: Math.abs(this._endY - this._startY),
+      };
+    }
+
+    /**
+     * 用 OffscreenCanvas 从截图中裁剪选区，转 Base64 后发给 background
+     * DPR（Device Pixel Ratio）补偿以保证高分屏裁剪精度
+     */
+    _cropAndSend(rect) {
+      const dpr       = window.devicePixelRatio || 1;
+      const cropW     = Math.round(rect.width  * dpr);
+      const cropH     = Math.round(rect.height * dpr);
+
+      const offscreen = new OffscreenCanvas(cropW, cropH);
+      const octx      = offscreen.getContext('2d');
+
+      octx.drawImage(
+        this._img,
+        rect.x * dpr, rect.y * dpr, cropW, cropH,
+        0, 0, cropW, cropH
+      );
+
+      offscreen.convertToBlob({ type: 'image/png' }).then((blob) => {
+        const reader    = new FileReader();
+        reader.onload   = () => {
+          const dataUrl  = reader.result;            // "data:image/png;base64,..."
+          const base64   = dataUrl.split(',')[1];
+
+          // 发给 background；x/y 是页面坐标（用于定位结果面板）
+          chrome.runtime.sendMessage({
+            action:   'nya-vision-crop',
+            base64,
+            mimeType: 'image/png',
+            x: Math.round(rect.x + rect.width  / 2 + window.scrollX),
+            y: Math.round(rect.y + rect.height / 2 + window.scrollY),
+          });
+        };
+        reader.readAsDataURL(blob);
+      });
+    }
+
+    _destroy() {
+      this._canvas?.removeEventListener('mousedown', this._onDown);
+      this._canvas?.removeEventListener('mousemove', this._onMove);
+      this._canvas?.removeEventListener('mouseup',   this._onUp);
+      document.removeEventListener('keydown', this._onKey);
+      this._canvas?.remove();
+      this._canvas = null;
+      this._ctx    = null;
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
   //  ExtensionApp — 根节点，组合所有模块
   // ═══════════════════════════════════════════════════════════════════════════
 
   class ExtensionApp {
     constructor() {
       this.selectedText = '';
-      this.config = new ConfigManager();
-      this.icon = new FloatingIcon();
-      this.panels = new PanelManager(this.config);
-      this.trigger = null;
+      this.config   = new ConfigManager();
+      this.icon     = new FloatingIcon();
+      this.panels   = new PanelManager(this.config);
+      this.vision   = new VisionResultPanel(() => this.config.data);   // 视觉结果面板（单例）
+      this.trigger  = null;
       this.selection = null;
 
       Object.defineProperty(this, 'panel', {
-        get() {
-          return this.panels.activePanel;
-        }
+        get() { return this.panels.activePanel; },
       });
 
       this.icon.onOpen = (pos) => {
@@ -1477,11 +2006,84 @@
       };
     }
 
+    _applyAppearanceToContentRoots() {
+      const a = NyaAppearance.mergeAppearance({ appearance: this.config.get('appearance') });
+      if (this.icon.el) {
+        NyaAppearance.applyToContentRoot(this.icon.el, a);
+      }
+      this.panels.refreshAppearanceFromConfig();
+    }
+
     async init() {
       await this.config.load();
-      this.trigger = new TriggerEngine(this.config);
+      this.icon._getConfigData = () => this.config.data;
+      this.trigger   = new TriggerEngine(this.config);
       this.selection = new SelectionManager(this);
-      console.debug('[划词助手 v4] 初始化完成 — 面板实例管理器已启用。');
+      this._setupMessageListener();
+
+      this._onAppearanceMedia = () => {
+        const mode = NyaAppearance.mergeAppearance({ appearance: this.config.get('appearance') }).themeMode;
+        if (mode === 'system') this._applyAppearanceToContentRoots();
+      };
+      this._appearanceMq = window.matchMedia('(prefers-color-scheme: dark)');
+      this._appearanceMq.addEventListener('change', this._onAppearanceMedia);
+
+      chrome.storage.onChanged.addListener((changes, area) => {
+        if (area !== 'local') return;
+        if (changes.models) {
+          this.config.load().then(() => {
+            this.panels.refreshModelSelectsFromConfig();
+          });
+        }
+        if (changes.appearance) {
+          this.config.load().then(() => {
+            this._applyAppearanceToContentRoots();
+          });
+        }
+      });
+      console.debug('[NyaTranslate v3.2] 初始化完成 — models 列表 + 面板模型选择。');
+    }
+
+    /**
+     * 监听来自 background 的消息（视觉翻译结果、截图推送）
+     *
+     * v3.1 变化：截图现在由 background 主动 push（nya-screenshot-start），
+     * 不再由 content.js 发起拉取（nya-start-screenshot），消除 popup 关闭时序问题。
+     */
+    _setupMessageListener() {
+      chrome.runtime.onMessage.addListener((message) => {
+        const { action } = message;
+
+        // background 通知：正在识别图片（右键菜单触发）
+        if (action === 'nya-vision-loading') {
+          this.vision.showLoading();
+          return;
+        }
+
+        // background 通知：视觉翻译结果已就绪
+        if (action === 'nya-vision-result') {
+          const pos = (message.x != null && message.y != null)
+            ? { x: message.x, y: message.y }
+            : null;
+          this.vision.show(message.result, message.label || message.model, pos);
+          return;
+        }
+
+        // background 通知：视觉翻译失败
+        if (action === 'nya-vision-error') {
+          this.vision.showError(message.error || '视觉翻译失败，请重试。');
+          return;
+        }
+
+        // background push：截图数据已就绪，直接挂载 ScreenshotOverlay
+        // 触发来源：Alt+Shift+S 快捷键 或 右键「区域截图翻译」
+        if (action === 'nya-screenshot-start') {
+          if (message.dataUrl) {
+            new ScreenshotOverlay(message.dataUrl).mount();
+          }
+          return;
+        }
+      });
     }
   }
 

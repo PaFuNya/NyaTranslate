@@ -1,0 +1,578 @@
+/**
+ * Material Design 3 — NyaTranslate 全局语义色（Monet 三色 × 深浅 × 背景）
+ * - 扩展页：html.nya-extension-ui[data-palette][data-theme][data-background]
+ * - 划词 UI：.my-ext-panel / #my-ext-icon 同名 data-*（不污染宿主 :root）
+ */
+
+/* ── 默认圆角（由 JS 设置 --app-border-radius 内联或保持下列回退） ── */
+html.nya-extension-ui,
+.my-ext-panel,
+#my-ext-icon {
+  --app-border-radius: 16px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Ocean — 浅蓝白（Pixel 清爽风）
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+html.nya-extension-ui[data-palette="ocean"][data-theme="light"],
+.my-ext-panel[data-palette="ocean"][data-theme="light"],
+#my-ext-icon[data-palette="ocean"][data-theme="light"] {
+  --md-sys-color-primary: #0a56d9;
+  --md-sys-color-on-primary: #ffffff;
+  --md-sys-color-primary-container: #d3e3fd;
+  --md-sys-color-on-primary-container: #041e49;
+  --md-sys-color-secondary: #5c616e;
+  --md-sys-color-on-secondary: #ffffff;
+  --md-sys-color-secondary-container: #e1e6f0;
+  --md-sys-color-on-secondary-container: #1a1c1e;
+  --md-sys-color-tertiary: #5c5891;
+  --md-sys-color-on-tertiary: #ffffff;
+  --md-sys-color-tertiary-container: #e4dfff;
+  --md-sys-color-on-tertiary-container: #1a1746;
+  --md-sys-color-surface: #f8fafc;
+  --md-sys-color-surface-dim: #e8eef7;
+  --md-sys-color-surface-bright: #ffffff;
+  --md-sys-color-surface-container-lowest: #ffffff;
+  --md-sys-color-surface-container-low: #f0f4fa;
+  --md-sys-color-surface-container: #e8eef7;
+  --md-sys-color-surface-container-high: #dfe6f2;
+  --md-sys-color-surface-container-highest: #d7deeb;
+  --md-sys-color-on-surface: #1e1e1e;
+  --md-sys-color-on-surface-variant: #43474e;
+  --md-sys-color-inverse-surface: #2f3033;
+  --md-sys-color-inverse-on-surface: #f1f0f4;
+  --md-sys-color-outline: #c4c7c5;
+  --md-sys-color-outline-variant: #d1d4d2;
+  --md-sys-color-error: #ba1a1a;
+  --md-sys-color-on-error: #ffffff;
+  --md-sys-color-error-container: #ffdad6;
+  --md-sys-color-on-error-container: #410002;
+  --md-sys-color-shadow: #000000;
+  --md-sys-color-scrim: #000000;
+  --md-sys-elevation-level1: 0 1px 2px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04);
+  --md-sys-elevation-level2: 0 2px 6px rgba(0, 0, 0, 0.08), 0 1px 4px rgba(0, 0, 0, 0.05);
+  --md-sys-elevation-level3: 0 4px 12px rgba(0, 0, 0, 0.1), 0 2px 8px rgba(0, 0, 0, 0.06);
+  --md-sys-state-hover-opacity: 0.08;
+  --md-sys-state-pressed-opacity: 0.12;
+}
+
+html.nya-extension-ui[data-palette="ocean"][data-theme="dark"],
+.my-ext-panel[data-palette="ocean"][data-theme="dark"],
+#my-ext-icon[data-palette="ocean"][data-theme="dark"] {
+  --md-sys-color-primary: #a8c7fa;
+  --md-sys-color-on-primary: #062e6f;
+  --md-sys-color-primary-container: #004a77;
+  --md-sys-color-on-primary-container: #c2e7ff;
+  --md-sys-color-secondary: #c2c6cf;
+  --md-sys-color-on-secondary: #2c3138;
+  --md-sys-color-secondary-container: #43474e;
+  --md-sys-color-on-secondary-container: #e1e6f0;
+  --md-sys-color-tertiary: #c6c2ff;
+  --md-sys-color-on-tertiary: #2f2d5a;
+  --md-sys-color-tertiary-container: #464378;
+  --md-sys-color-on-tertiary-container: #e4dfff;
+  --md-sys-color-surface: #111418;
+  --md-sys-color-surface-dim: #111418;
+  --md-sys-color-surface-bright: #2a2f36;
+  --md-sys-color-surface-container-lowest: #0c0e12;
+  --md-sys-color-surface-container-low: #181c22;
+  --md-sys-color-surface-container: #1e2329;
+  --md-sys-color-surface-container-high: #282e35;
+  --md-sys-color-surface-container-highest: #323840;
+  --md-sys-color-on-surface: #e2e2e2;
+  --md-sys-color-on-surface-variant: #c4c6cf;
+  --md-sys-color-inverse-surface: #e2e2e6;
+  --md-sys-color-inverse-on-surface: #1a1c1e;
+  --md-sys-color-outline: #444746;
+  --md-sys-color-outline-variant: #3a3e3c;
+  --md-sys-color-error: #ffb4ab;
+  --md-sys-color-on-error: #690005;
+  --md-sys-color-error-container: #93000a;
+  --md-sys-color-on-error-container: #ffdad6;
+  --md-sys-color-shadow: #000000;
+  --md-sys-color-scrim: #000000;
+  --md-sys-elevation-level1: 0 1px 3px rgba(0, 0, 0, 0.35), 0 1px 2px rgba(0, 0, 0, 0.28);
+  --md-sys-elevation-level2: 0 2px 8px rgba(0, 0, 0, 0.38), 0 1px 4px rgba(0, 0, 0, 0.32);
+  --md-sys-elevation-level3: 0 6px 16px rgba(0, 0, 0, 0.42), 0 2px 10px rgba(0, 0, 0, 0.34);
+  --md-sys-state-hover-opacity: 0.08;
+  --md-sys-state-pressed-opacity: 0.12;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Mint — 莫奈薄荷绿
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+html.nya-extension-ui[data-palette="mint"][data-theme="light"],
+.my-ext-panel[data-palette="mint"][data-theme="light"],
+#my-ext-icon[data-palette="mint"][data-theme="light"] {
+  --md-sys-color-primary: #4a6b62;
+  --md-sys-color-on-primary: #ffffff;
+  --md-sys-color-primary-container: #cce8de;
+  --md-sys-color-on-primary-container: #052019;
+  --md-sys-color-secondary: #5c605d;
+  --md-sys-color-on-secondary: #ffffff;
+  --md-sys-color-secondary-container: #e0e3df;
+  --md-sys-color-on-secondary-container: #1a1c1b;
+  --md-sys-color-tertiary: #4a5f6b;
+  --md-sys-color-on-tertiary: #ffffff;
+  --md-sys-color-tertiary-container: #cce5f2;
+  --md-sys-color-on-tertiary-container: #051923;
+  --md-sys-color-surface: #f7faf7;
+  --md-sys-color-surface-dim: #e6ebe8;
+  --md-sys-color-surface-bright: #ffffff;
+  --md-sys-color-surface-container-lowest: #ffffff;
+  --md-sys-color-surface-container-low: #f0f4f1;
+  --md-sys-color-surface-container: #eaefec;
+  --md-sys-color-surface-container-high: #e4e9e6;
+  --md-sys-color-surface-container-highest: #dee3e0;
+  --md-sys-color-on-surface: #1a1c1b;
+  --md-sys-color-on-surface-variant: #434845;
+  --md-sys-color-inverse-surface: #2f3130;
+  --md-sys-color-inverse-on-surface: #f1f1f0;
+  --md-sys-color-outline: #737873;
+  --md-sys-color-outline-variant: #c3c8c3;
+  --md-sys-color-error: #ba1a1a;
+  --md-sys-color-on-error: #ffffff;
+  --md-sys-color-error-container: #ffdad6;
+  --md-sys-color-on-error-container: #410002;
+  --md-sys-color-shadow: #000000;
+  --md-sys-color-scrim: #000000;
+  --md-sys-elevation-level1: 0 1px 2px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04);
+  --md-sys-elevation-level2: 0 2px 6px rgba(0, 0, 0, 0.08), 0 1px 4px rgba(0, 0, 0, 0.05);
+  --md-sys-elevation-level3: 0 4px 12px rgba(0, 0, 0, 0.1), 0 2px 8px rgba(0, 0, 0, 0.06);
+  --md-sys-state-hover-opacity: 0.08;
+  --md-sys-state-pressed-opacity: 0.12;
+}
+
+html.nya-extension-ui[data-palette="mint"][data-theme="dark"],
+.my-ext-panel[data-palette="mint"][data-theme="dark"],
+#my-ext-icon[data-palette="mint"][data-theme="dark"] {
+  --md-sys-color-primary: #b0d0c5;
+  --md-sys-color-on-primary: #15352c;
+  --md-sys-color-primary-container: #2f4d44;
+  --md-sys-color-on-primary-container: #cce8de;
+  --md-sys-color-secondary: #c4c7c3;
+  --md-sys-color-on-secondary: #2e312f;
+  --md-sys-color-secondary-container: #454846;
+  --md-sys-color-on-secondary-container: #e0e3df;
+  --md-sys-color-tertiary: #b3c9d6;
+  --md-sys-color-on-tertiary: #1e333f;
+  --md-sys-color-tertiary-container: #354a56;
+  --md-sys-color-on-tertiary-container: #cce5f2;
+  --md-sys-color-surface: #101413;
+  --md-sys-color-surface-dim: #101413;
+  --md-sys-color-surface-bright: #363a38;
+  --md-sys-color-surface-container-lowest: #0b0f0e;
+  --md-sys-color-surface-container-low: #181c1a;
+  --md-sys-color-surface-container: #1c201e;
+  --md-sys-color-surface-container-high: #262a28;
+  --md-sys-color-surface-container-highest: #313533;
+  --md-sys-color-on-surface: #e1e3e1;
+  --md-sys-color-on-surface-variant: #c3c8c3;
+  --md-sys-color-inverse-surface: #e1e3e1;
+  --md-sys-color-inverse-on-surface: #1a1c1b;
+  --md-sys-color-outline: #8d928d;
+  --md-sys-color-outline-variant: #434845;
+  --md-sys-color-error: #ffb4ab;
+  --md-sys-color-on-error: #690005;
+  --md-sys-color-error-container: #93000a;
+  --md-sys-color-on-error-container: #ffdad6;
+  --md-sys-color-shadow: #000000;
+  --md-sys-color-scrim: #000000;
+  --md-sys-elevation-level1: 0 1px 3px rgba(0, 0, 0, 0.35), 0 1px 2px rgba(0, 0, 0, 0.28);
+  --md-sys-elevation-level2: 0 2px 8px rgba(0, 0, 0, 0.38), 0 1px 4px rgba(0, 0, 0, 0.32);
+  --md-sys-elevation-level3: 0 6px 16px rgba(0, 0, 0, 0.42), 0 2px 10px rgba(0, 0, 0, 0.34);
+  --md-sys-state-hover-opacity: 0.08;
+  --md-sys-state-pressed-opacity: 0.12;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Lilac — 莫奈丁香紫
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+html.nya-extension-ui[data-palette="lilac"][data-theme="light"],
+.my-ext-panel[data-palette="lilac"][data-theme="light"],
+#my-ext-icon[data-palette="lilac"][data-theme="light"] {
+  --md-sys-color-primary: #6b5b95;
+  --md-sys-color-on-primary: #ffffff;
+  --md-sys-color-primary-container: #eaddff;
+  --md-sys-color-on-primary-container: #25005a;
+  --md-sys-color-secondary: #5f5c71;
+  --md-sys-color-on-secondary: #ffffff;
+  --md-sys-color-secondary-container: #e4e1ec;
+  --md-sys-color-on-secondary-container: #1c1b22;
+  --md-sys-color-tertiary: #7d5260;
+  --md-sys-color-on-tertiary: #ffffff;
+  --md-sys-color-tertiary-container: #ffd8e4;
+  --md-sys-color-on-tertiary-container: #31101d;
+  --md-sys-color-surface: #fef7ff;
+  --md-sys-color-surface-dim: #f3edf7;
+  --md-sys-color-surface-bright: #ffffff;
+  --md-sys-color-surface-container-lowest: #ffffff;
+  --md-sys-color-surface-container-low: #f7f0fa;
+  --md-sys-color-surface-container: #f3edf7;
+  --md-sys-color-surface-container-high: #ede7f1;
+  --md-sys-color-surface-container-highest: #e7e1eb;
+  --md-sys-color-on-surface: #1d1b20;
+  --md-sys-color-on-surface-variant: #49454e;
+  --md-sys-color-inverse-surface: #313033;
+  --md-sys-color-inverse-on-surface: #f4eff4;
+  --md-sys-color-outline: #7a757f;
+  --md-sys-color-outline-variant: #cac4d0;
+  --md-sys-color-error: #ba1a1a;
+  --md-sys-color-on-error: #ffffff;
+  --md-sys-color-error-container: #ffdad6;
+  --md-sys-color-on-error-container: #410002;
+  --md-sys-color-shadow: #000000;
+  --md-sys-color-scrim: #000000;
+  --md-sys-elevation-level1: 0 1px 2px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04);
+  --md-sys-elevation-level2: 0 2px 6px rgba(0, 0, 0, 0.08), 0 1px 4px rgba(0, 0, 0, 0.05);
+  --md-sys-elevation-level3: 0 4px 12px rgba(0, 0, 0, 0.1), 0 2px 8px rgba(0, 0, 0, 0.06);
+  --md-sys-state-hover-opacity: 0.08;
+  --md-sys-state-pressed-opacity: 0.12;
+}
+
+html.nya-extension-ui[data-palette="lilac"][data-theme="dark"],
+.my-ext-panel[data-palette="lilac"][data-theme="dark"],
+#my-ext-icon[data-palette="lilac"][data-theme="dark"] {
+  --md-sys-color-primary: #cfbcff;
+  --md-sys-color-on-primary: #381e72;
+  --md-sys-color-primary-container: #4f378b;
+  --md-sys-color-on-primary-container: #eaddff;
+  --md-sys-color-secondary: #cbc3dc;
+  --md-sys-color-on-secondary: #332d41;
+  --md-sys-color-secondary-container: #4a4458;
+  --md-sys-color-on-secondary-container: #e4e1ec;
+  --md-sys-color-tertiary: #efb8c8;
+  --md-sys-color-on-tertiary: #4a2536;
+  --md-sys-color-tertiary-container: #633b4c;
+  --md-sys-color-on-tertiary-container: #ffd8e4;
+  --md-sys-color-surface: #141218;
+  --md-sys-color-surface-dim: #141218;
+  --md-sys-color-surface-bright: #3a383e;
+  --md-sys-color-surface-container-lowest: #0f0d13;
+  --md-sys-color-surface-container-low: #1d1b20;
+  --md-sys-color-surface-container: #211f26;
+  --md-sys-color-surface-container-high: #2b292f;
+  --md-sys-color-surface-container-highest: #36343a;
+  --md-sys-color-on-surface: #e6e1e6;
+  --md-sys-color-on-surface-variant: #cac4d0;
+  --md-sys-color-inverse-surface: #e6e1e6;
+  --md-sys-color-inverse-on-surface: #1d1b20;
+  --md-sys-color-outline: #948f99;
+  --md-sys-color-outline-variant: #49454e;
+  --md-sys-color-error: #ffb4ab;
+  --md-sys-color-on-error: #690005;
+  --md-sys-color-error-container: #93000a;
+  --md-sys-color-on-error-container: #ffdad6;
+  --md-sys-color-shadow: #000000;
+  --md-sys-color-scrim: #000000;
+  --md-sys-elevation-level1: 0 1px 3px rgba(0, 0, 0, 0.35), 0 1px 2px rgba(0, 0, 0, 0.28);
+  --md-sys-elevation-level2: 0 2px 8px rgba(0, 0, 0, 0.38), 0 1px 4px rgba(0, 0, 0, 0.32);
+  --md-sys-elevation-level3: 0 6px 16px rgba(0, 0, 0, 0.42), 0 2px 10px rgba(0, 0, 0, 0.34);
+  --md-sys-state-hover-opacity: 0.08;
+  --md-sys-state-pressed-opacity: 0.12;
+}
+
+/* ── 纯白 / 纯黑基面（覆盖 surface 系列） ── */
+html.nya-extension-ui[data-background="pure"][data-theme="light"],
+.my-ext-panel[data-background="pure"][data-theme="light"],
+#my-ext-icon[data-background="pure"][data-theme="light"] {
+  --md-sys-color-surface: #ffffff;
+  --md-sys-color-surface-bright: #ffffff;
+  --md-sys-color-surface-container-lowest: #ffffff;
+  --md-sys-color-surface-container-low: #f7f7f7;
+  --md-sys-color-surface-container: #f0f0f0;
+  --md-sys-color-surface-container-high: #e8e8e8;
+  --md-sys-color-surface-container-highest: #e0e0e0;
+}
+
+html.nya-extension-ui[data-background="pure"][data-theme="dark"],
+.my-ext-panel[data-background="pure"][data-theme="dark"],
+#my-ext-icon[data-background="pure"][data-theme="dark"] {
+  --md-sys-color-surface: #121212;
+  --md-sys-color-surface-dim: #121212;
+  --md-sys-color-surface-bright: #1e1e1e;
+  --md-sys-color-surface-container-lowest: #0a0a0a;
+  --md-sys-color-surface-container-low: #1a1a1a;
+  --md-sys-color-surface-container: #1e1e1e;
+  --md-sys-color-surface-container-high: #252525;
+  --md-sys-color-surface-container-highest: #2c2c2c;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   扩展页 options / popup：兼容旧变量名 → options.css 渐进迁移
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+html.nya-extension-ui {
+  --md-primary: var(--md-sys-color-primary);
+  --md-on-primary: var(--md-sys-color-on-primary);
+  --md-primary-container: var(--md-sys-color-primary-container);
+  --md-on-primary-container: var(--md-sys-color-on-primary-container);
+  --md-secondary: var(--md-sys-color-secondary);
+  --md-secondary-container: var(--md-sys-color-secondary-container);
+  --md-tertiary: var(--md-sys-color-tertiary);
+  --md-tertiary-container: var(--md-sys-color-tertiary-container);
+  --accent: var(--md-sys-color-primary);
+  --accent-hover: color-mix(in srgb, var(--md-sys-color-primary) 88%, #000);
+  --accent-active: color-mix(in srgb, var(--md-sys-color-primary) 75%, #000);
+  --accent-soft: var(--md-sys-color-primary-container);
+  --accent-glow: color-mix(in srgb, var(--md-sys-color-primary) 28%, transparent);
+  --text-primary: var(--md-sys-color-on-surface);
+  --text-secondary: var(--md-sys-color-on-surface-variant);
+  --text-muted: color-mix(in srgb, var(--md-sys-color-on-surface-variant) 85%, var(--md-sys-color-surface));
+  --border: var(--md-sys-color-outline-variant);
+  --card-bg: color-mix(in srgb, var(--md-sys-color-surface-container) 94%, var(--md-sys-color-surface));
+  --radius-sm: calc(var(--app-border-radius) * 0.55);
+  --radius-md: calc(var(--app-border-radius) * 0.85);
+  --radius-lg: var(--app-border-radius);
+  --shadow-card: var(--md-sys-elevation-level1);
+  --shadow-card-hover: var(--md-sys-elevation-level3);
+  --sidebar-bg: linear-gradient(
+    165deg,
+    color-mix(in srgb, var(--md-sys-color-primary) 18%, #1a1520) 0%,
+    color-mix(in srgb, var(--md-sys-color-tertiary) 12%, #252030) 48%,
+    #141218 100%
+  );
+  --sidebar-text: color-mix(in srgb, var(--md-sys-color-primary-container) 72%, var(--md-sys-color-surface-bright));
+  --sidebar-active: var(--md-sys-color-on-primary-container);
+  --md-surface: var(--md-sys-color-surface);
+  --md-surface-container: var(--md-sys-color-surface-container);
+  --md-outline-variant: var(--md-sys-color-outline-variant);
+}
+
+html.nya-extension-ui body {
+  background-color: var(--md-sys-color-surface);
+  color: var(--md-sys-color-on-surface);
+}
+
+html.nya-extension-ui[data-theme="light"] {
+  --success: #146c2e;
+  --success-bg: #e7f8ec;
+  --success-border: #7bcf8f;
+  --warning: #b45309;
+  --warning-bg: color-mix(in srgb, #f59e0b 14%, var(--md-sys-color-surface));
+  --danger: var(--md-sys-color-error);
+  --danger-bg: var(--md-sys-color-error-container);
+  --error: var(--md-sys-color-error);
+  --error-bg: var(--md-sys-color-error-container);
+  --error-border: color-mix(in srgb, var(--md-sys-color-error) 35%, transparent);
+}
+
+html.nya-extension-ui[data-theme="dark"] {
+  --success: #81c784;
+  --success-bg: color-mix(in srgb, #146c2e 35%, transparent);
+  --success-border: #4caf50;
+  --warning: #fbbf24;
+  --warning-bg: color-mix(in srgb, #b45309 28%, var(--md-sys-color-surface));
+  --danger: var(--md-sys-color-error);
+  --danger-bg: var(--md-sys-color-error-container);
+  --error: var(--md-sys-color-error);
+  --error-bg: var(--md-sys-color-error-container);
+  --error-border: color-mix(in srgb, var(--md-sys-color-error) 45%, transparent);
+}
+
+html.nya-extension-ui[data-background="tonal"][data-theme="light"] body {
+  background: radial-gradient(120% 100% at 10% 0%, color-mix(in srgb, var(--md-sys-color-primary) 12%, #fff) 0%, var(--md-sys-color-surface) 42%, color-mix(in srgb, var(--md-sys-color-tertiary-container) 18%, var(--md-sys-color-surface)) 100%);
+  color: var(--md-sys-color-on-surface);
+}
+
+html.nya-extension-ui[data-background="pure"][data-theme="light"] body {
+  background: var(--md-sys-color-surface);
+  color: var(--md-sys-color-on-surface);
+}
+
+html.nya-extension-ui[data-background="tonal"][data-theme="dark"] body {
+  background: radial-gradient(130% 100% at 10% 0%, color-mix(in srgb, var(--md-sys-color-primary) 22%, #0d0f14) 0%, var(--md-sys-color-surface) 55%, #0a0c10 100%);
+  color: var(--md-sys-color-on-surface);
+}
+
+html.nya-extension-ui[data-background="pure"][data-theme="dark"] body {
+  background: var(--md-sys-color-surface);
+  color: var(--md-sys-color-on-surface);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   划词面板：--ext-* 桥接到 MD3
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.my-ext-panel[data-palette],
+#my-ext-icon[data-palette] {
+  --ext-accent: var(--md-sys-color-primary);
+  --ext-accent-hover: color-mix(in srgb, var(--md-sys-color-primary) 88%, #000);
+  --ext-accent-active: color-mix(in srgb, var(--md-sys-color-primary) 75%, #000);
+  --ext-accent-soft: var(--md-sys-color-primary-container);
+  --ext-bg: var(--md-sys-color-surface);
+  --ext-border: color-mix(in srgb, var(--md-sys-color-outline) 28%, transparent);
+  --ext-text-primary: var(--md-sys-color-on-surface);
+  --ext-text-secondary: var(--md-sys-color-on-surface-variant);
+  --ext-text-muted: color-mix(in srgb, var(--md-sys-color-on-surface-variant) 80%, var(--md-sys-color-surface));
+  --ext-radius-icon: 50%;
+  --ext-radius-panel: var(--app-border-radius);
+  --ext-radius-btn: calc(var(--app-border-radius) * 0.55);
+  --ext-tab-active-bg: var(--md-sys-color-surface);
+  --ext-tab-inactive-bg: var(--md-sys-color-surface-container-low);
+  --ext-shadow-icon: var(--md-sys-elevation-level2), 0 0 0 1px color-mix(in srgb, var(--md-sys-color-primary) 25%, transparent);
+  --ext-shadow-panel: var(--md-sys-elevation-level3), 0 0 0 1px color-mix(in srgb, var(--md-sys-color-outline) 12%, transparent);
+  --ext-transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* MaterialSelect（自定义下拉） */
+.nya-ms {
+  position: relative;
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  font-family: inherit;
+}
+
+.nya-ms__native {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.nya-ms__trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 14px;
+  border: none;
+  border-radius: calc(var(--app-border-radius) * 1.1);
+  background: var(--md-sys-color-surface-container-high);
+  color: var(--md-sys-color-on-surface);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  box-shadow: var(--md-sys-elevation-level1);
+  transition: background 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s;
+}
+
+.nya-ms__trigger:hover {
+  background: color-mix(in srgb, var(--md-sys-color-on-surface) 6%, var(--md-sys-color-surface-container-high));
+}
+
+.nya-ms__trigger:focus-visible {
+  outline: 2px solid var(--md-sys-color-primary);
+  outline-offset: 2px;
+}
+
+.nya-ms__trigger-icon {
+  flex-shrink: 0;
+  opacity: 0.7;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.nya-ms--open .nya-ms__trigger-icon,
+.nya-ms.active .nya-ms__trigger-icon {
+  transform: rotate(180deg);
+}
+
+.nya-ms__menu {
+  position: fixed;
+  z-index: 2147483647;
+  min-width: 160px;
+  max-height: 280px;
+  overflow-y: auto;
+  padding: 6px;
+  margin: 0;
+  list-style: none;
+  list-style-type: none;
+  border-radius: calc(var(--app-border-radius) * 0.95);
+  background: var(--md-sys-color-surface-container-high);
+  color: var(--md-sys-color-on-surface);
+  box-shadow: var(--md-sys-elevation-level3);
+  opacity: 0;
+  transform: scale(0.96) translateY(-6px);
+  transform-origin: top center;
+  pointer-events: none;
+  transition: opacity 0.18s cubic-bezier(0.4, 0, 0.2, 1), transform 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 菜单常挂在 body 下，需 .nya-ms__menu--open；若在 .nya-ms 内则仍可用后代选择器 */
+.nya-ms__menu.nya-ms__menu--open,
+.nya-ms--open .nya-ms__menu,
+.nya-ms.active .nya-ms__menu {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+  pointer-events: auto;
+}
+
+.nya-ms__option {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 10px 12px;
+  border: none;
+  border-radius: calc(var(--app-border-radius) * 0.55);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.nya-ms__option:hover,
+.nya-ms__option--highlight {
+  background: color-mix(in srgb, var(--md-sys-color-on-surface) 8%, transparent);
+}
+
+.nya-ms__option--selected {
+  background: color-mix(in srgb, var(--md-sys-color-primary) 14%, transparent);
+  color: var(--md-sys-color-primary);
+  font-weight: 600;
+}
+
+/* 划词面板内紧凑下拉（模型选择） */
+.my-ext-panel .nya-ms--compact {
+  width: auto;
+  max-width: 150px;
+}
+
+.my-ext-panel .nya-ms--compact .nya-ms__trigger {
+  min-height: 26px;
+  padding: 3px 26px 3px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: calc(var(--app-border-radius) * 0.45);
+  box-shadow: none;
+  background: color-mix(in srgb, var(--md-sys-color-primary) 10%, var(--md-sys-color-surface));
+  border: 1px solid color-mix(in srgb, var(--md-sys-color-primary) 28%, transparent);
+}
+
+.my-ext-panel .nya-ms--compact .nya-ms__menu {
+  font-size: 12px;
+}
+
+.select-wrap .nya-ms {
+  width: 100%;
+}
+
+.select-wrap .select-arrow {
+  display: none;
+}
+
+.field-select.nya-ms__native {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  clip: rect(0, 0, 0, 0);
+}
+
+.nya-ms__menu li {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}

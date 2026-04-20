@@ -1,30 +1,198 @@
 /**
- * Background Service Worker — 划词助手 v2
+ * Background Service Worker — NyaTranslate v3.1
  *
- * 职责：
- *   - 从 chrome.storage.local 读取 API Key
- *   - 通过 fetchLLM() 向 DeepSeek / 通义千问发起请求
- *   - 将结果返回给 Content Script
+ * 架构重构要点：
+ *   - 零硬编码厂商信息：模型 ID / Base URL / API Key 全部动态读自 storage
+ *   - 适配器模式保留（OpenAIAdapter / ClaudeAdapter），入口改为动态 cfg
+ *   - notConfigured 标记：未配置时优雅降级，不暴力抛错
+ *   - 截图调度权移交 background：keyboard shortcut + 右键菜单直接 captureVisibleTab
+ *     并 push dataUrl 给 content.js（消除 popup 关闭导致的时序问题）
+ *   - HistoryManager 保持不变
  */
 
 'use strict';
 
-// ─── 模型配置 ─────────────────────────────────────────────────────────────────
+// ─── 存储 Schema 默认值 ───────────────────────────────────────────────────────
 
-const MODEL_CONFIG = {
-  deepseek: {
-    baseUrl: 'https://api.deepseek.com/v1/chat/completions',
-    model:   'deepseek-chat',
-    keyName: 'deepseekKey',          // 在 chrome.storage.local 中的键名
-    label:   'DeepSeek',
-  },
-  qwen: {
-    baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions',
-    model:   'qwen-plus',
-    keyName: 'qwenKey',
-    label:   '通义千问',
-  },
-};
+const DEFAULT_OPENAI_BASE_URL    = 'https://api.openai.com/v1';
+const DEFAULT_ANTHROPIC_BASE_URL = 'https://api.anthropic.com/v1';
+
+/**
+ * @returns {string}
+ */
+function newModelRowId() {
+  try {
+    return crypto.randomUUID();
+  } catch (_) {
+    return `m-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+  }
+}
+
+/**
+ * 统一解析 models：支持 v4 独立鉴权结构，并兼容旧版全局 Key + 旧 models 行。
+ * @typedef {{ id: string, modelId: string, displayName: string, protocol: 'openai'|'anthropic', baseUrl: string, apiKey: string, enabled: boolean }} ModelRow
+ * @param {Record<string, unknown>} stored
+ * @returns {ModelRow[]}
+ */
+function ensureModelsArray(stored) {
+  const globals = {
+    openaiKey:       String(stored.openaiKey || ''),
+    openaiBaseUrl:   String(stored.openaiBaseUrl || DEFAULT_OPENAI_BASE_URL).replace(/\/$/, ''),
+    anthropicKey:    String(stored.anthropicKey || ''),
+    anthropicBaseUrl: String(stored.anthropicBaseUrl || DEFAULT_ANTHROPIC_BASE_URL).replace(/\/$/, ''),
+  };
+
+  const raw = Array.isArray(stored.models) ? stored.models : [];
+  /** @type {ModelRow[]} */
+  const out = [];
+  const seenIds = new Set();
+
+  const pushRow = (row) => {
+    const id = String(row.id || '').trim() || newModelRowId();
+    if (seenIds.has(id)) return;
+    seenIds.add(id);
+    out.push({
+      id,
+      modelId:     String(row.modelId || '').trim(),
+      displayName: String(row.displayName || row.modelId || '').trim() || String(row.modelId || '').trim(),
+      protocol:    row.protocol === 'anthropic' ? 'anthropic' : 'openai',
+      baseUrl:     String(row.baseUrl || '').trim().replace(/\/$/, ''),
+      apiKey:      String(row.apiKey || ''),
+      enabled:     row.enabled !== false,
+    });
+  };
+
+  for (const m of raw) {
+    if (!m || typeof m !== 'object') continue;
+
+    if (m.modelId != null && (m.protocol === 'openai' || m.protocol === 'anthropic')) {
+      const proto = m.protocol === 'anthropic' ? 'anthropic' : 'openai';
+      const defBase = proto === 'anthropic' ? DEFAULT_ANTHROPIC_BASE_URL : DEFAULT_OPENAI_BASE_URL;
+      pushRow({
+        id:          m.id,
+        modelId:     m.modelId,
+        displayName: m.displayName != null ? m.displayName : m.modelId,
+        protocol:    proto,
+        baseUrl:     m.baseUrl != null && String(m.baseUrl).trim() ? m.baseUrl : defBase,
+        apiKey:      m.apiKey != null ? m.apiKey : '',
+        enabled:     m.enabled,
+      });
+      continue;
+    }
+
+    const oldApiName = String(m.id || '').trim();
+    if (!oldApiName) continue;
+    const proto = m.provider === 'anthropic' ? 'anthropic' : 'openai';
+    pushRow({
+      id:          newModelRowId(),
+      modelId:     oldApiName,
+      displayName: oldApiName,
+      protocol:    proto,
+      baseUrl:     proto === 'anthropic' ? globals.anthropicBaseUrl : globals.openaiBaseUrl,
+      apiKey:      proto === 'anthropic' ? globals.anthropicKey : globals.openaiKey,
+      enabled:     m.enabled !== false,
+    });
+  }
+
+  const legacyText = (stored.textModelId && String(stored.textModelId).trim()) || '';
+  const legacyProto = stored.textModelProtocol === 'anthropic' ? 'anthropic' : 'openai';
+  if (legacyText && !out.some((r) => r.modelId === legacyText)) {
+    pushRow({
+      id:          newModelRowId(),
+      modelId:     legacyText,
+      displayName: legacyText,
+      protocol:    legacyProto,
+      baseUrl:     legacyProto === 'anthropic' ? globals.anthropicBaseUrl : globals.openaiBaseUrl,
+      apiKey:      legacyProto === 'anthropic' ? globals.anthropicKey : globals.openaiKey,
+      enabled:     true,
+    });
+  }
+
+  if (out.length === 0) {
+    return [
+      {
+        id: newModelRowId(),
+        modelId: 'gpt-4o',
+        displayName: 'GPT-4o',
+        protocol: 'openai',
+        baseUrl: DEFAULT_OPENAI_BASE_URL,
+        apiKey: '',
+        enabled: true,
+      },
+      {
+        id: newModelRowId(),
+        modelId: 'claude-3-5-sonnet-20241022',
+        displayName: 'Claude 3.5 Sonnet',
+        protocol: 'anthropic',
+        baseUrl: DEFAULT_ANTHROPIC_BASE_URL,
+        apiKey: '',
+        enabled: true,
+      },
+      {
+        id: newModelRowId(),
+        modelId: 'deepseek-chat',
+        displayName: 'DeepSeek Chat',
+        protocol: 'openai',
+        baseUrl: 'https://api.deepseek.com/v1',
+        apiKey: '',
+        enabled: true,
+      },
+    ];
+  }
+
+  return out;
+}
+
+/**
+ * @param {Record<string, unknown>} stored
+ * @param {{ targetModelId?: string, modelId?: string }} [override]
+ */
+function buildCfgForModel(stored, override) {
+  const models = ensureModelsArray(stored);
+  const target = (override?.targetModelId || override?.modelId || '').trim();
+
+  let row = target
+    ? models.find((m) => m.id === target)
+    : null;
+
+  if (!row) {
+    row = models.find((m) => m.enabled) || null;
+  }
+
+  if (!row) {
+    return {
+      protocol:    'openai',
+      model:       '',
+      baseUrl:     '',
+      apiKey:      '',
+      label:       '',
+      hasRow:      false,
+      missingKey:  false,
+    };
+  }
+
+  const protocol = row.protocol === 'anthropic' ? 'anthropic' : 'openai';
+  const base = (row.baseUrl || (protocol === 'anthropic' ? DEFAULT_ANTHROPIC_BASE_URL : DEFAULT_OPENAI_BASE_URL))
+    .replace(/\/$/, '');
+  const apiKey = (row.apiKey || '').trim();
+  const model = (row.modelId || '').trim();
+  const fullUrl = protocol === 'anthropic'
+    ? `${base}/messages`
+    : `${base}/chat/completions`;
+
+  const label = (row.displayName || '').trim() || model || (protocol === 'anthropic' ? 'Claude' : 'AI');
+
+  return {
+    protocol,
+    model,
+    baseUrl: fullUrl,
+    apiKey,
+    label,
+    hasRow:     true,
+    missingKey: !apiKey,
+  };
+}
+
 
 // ─── System Prompt 工厂 ───────────────────────────────────────────────────────
 
@@ -53,115 +221,548 @@ function buildSystemPrompt(type) {
       '（对文本中的核心术语或概念给出简洁专业解释：核心定义 1-2 句 + 使用场景或领域背景 1-2 句；用中文作答）'
     );
   }
+  if (type === 'vision') {
+    return '请识别图中文字，并在保持原有段落排版的情况下，将其翻译为流畅的中文。';
+  }
   return '你是一个助手，请回答用户的问题。';
 }
 
-// ─── 核心请求函数 ─────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+//  动态配置读取器
+//  从 storage 构建运行时 cfg 对象，不再依赖硬编码 MODEL_CONFIG
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  适配器一：OpenAI 兼容协议
+// ═══════════════════════════════════════════════════════════════════════════
+
+class OpenAIAdapter {
+  static async fetchText(text, systemPrompt, apiKey, cfg) {
+    const body = {
+      model:       cfg.model,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user',   content: text },
+      ],
+      stream:      false,
+      max_tokens:  1024,
+      temperature: 0.3,
+    };
+    return OpenAIAdapter._request(cfg.baseUrl, apiKey, body);
+  }
+
+  static async fetchVision(base64, mimeType, systemPrompt, apiKey, cfg) {
+    const body = {
+      model: cfg.model,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        {
+          role: 'user',
+          content: [
+            {
+              type:      'image_url',
+              image_url: { url: `data:${mimeType};base64,${base64}` },
+            },
+          ],
+        },
+      ],
+      stream:      false,
+      max_tokens:  2048,
+      temperature: 0.3,
+    };
+    return OpenAIAdapter._request(cfg.baseUrl, apiKey, body);
+  }
+
+  static async _request(url, apiKey, body) {
+    let response;
+    try {
+      response = await fetch(url, {
+        method:  'POST',
+        headers: {
+          'Content-Type':  'application/json',
+          'Authorization': `Bearer ${apiKey.trim()}`,
+        },
+        body: JSON.stringify(body),
+      });
+    } catch (e) {
+      throw new Error(`网络请求失败，请检查网络连接。(${e.message})`);
+    }
+
+    if (!response.ok) {
+      let errMsg = `API 请求失败 (HTTP ${response.status})`;
+      try {
+        const d = await response.json();
+        if (d?.error?.message) errMsg = d.error.message;
+      } catch (_) { /* 忽略 JSON 解析失败 */ }
+      throw new Error(errMsg);
+    }
+
+    const data    = await response.json();
+    const content = data?.choices?.[0]?.message?.content;
+    if (!content) throw new Error('模型返回了空内容，请重试。');
+    return content.trim();
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  适配器二：Anthropic 协议（Claude）
+// ═══════════════════════════════════════════════════════════════════════════
+
+class ClaudeAdapter {
+  static async fetchText(text, systemPrompt, apiKey, cfg) {
+    const body = {
+      model:      cfg.model,
+      max_tokens: 1024,
+      system:     systemPrompt,
+      messages: [
+        { role: 'user', content: text },
+      ],
+    };
+    return ClaudeAdapter._request(cfg.baseUrl, apiKey, body);
+  }
+
+  static async fetchVision(base64, mimeType, systemPrompt, apiKey, cfg) {
+    const body = {
+      model:      cfg.model,
+      max_tokens: 2048,
+      system:     systemPrompt,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type:   'image',
+              source: {
+                type:       'base64',
+                media_type: mimeType,
+                data:       base64,
+              },
+            },
+          ],
+        },
+      ],
+    };
+    return ClaudeAdapter._request(cfg.baseUrl, apiKey, body);
+  }
+
+  static async _request(url, apiKey, body) {
+    let response;
+    try {
+      response = await fetch(url, {
+        method:  'POST',
+        headers: {
+          'Content-Type':      'application/json',
+          'x-api-key':         apiKey.trim(),
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify(body),
+      });
+    } catch (e) {
+      throw new Error(`网络请求失败，请检查网络连接。(${e.message})`);
+    }
+
+    if (!response.ok) {
+      let errMsg = `API 请求失败 (HTTP ${response.status})`;
+      try {
+        const d = await response.json();
+        if (d?.error?.message) errMsg = d.error.message;
+      } catch (_) { /* 忽略 JSON 解析失败 */ }
+      throw new Error(errMsg);
+    }
+
+    const data    = await response.json();
+    const content = data?.content?.[0]?.text;
+    if (!content) throw new Error('模型返回了空内容，请重试。');
+    return content.trim();
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  请求分发器 — 文本翻译/解释
+// ═══════════════════════════════════════════════════════════════════════════
 
 /**
- * 向指定 LLM 发起请求
- * @param {string} text   用户选中的文本
- * @param {string} type   'translate' | 'explain'
- * @param {string} model  'deepseek' | 'qwen'
- * @returns {Promise<string>} 模型返回的文本
+ * 文本翻译/解释统一入口
+ * 动态读取 storage 中的协议配置，无硬编码厂商信息
+ * @param {string} text
+ * @param {string} type  'translate' | 'explain' | 'combined'
+ * @returns {Promise<string>}
  */
-async function fetchLLM(text, type, model) {
-  const cfg = MODEL_CONFIG[model];
-  if (!cfg) throw new Error(`未知模型: ${model}`);
+/**
+ * @param {string} text
+ * @param {string} type
+ * @param {{ targetModelId?: string, modelId?: string }} [override] 面板所选模型配置行 id
+ */
+async function fetchLLM(text, type, override) {
+  const s = await chrome.storage.local.get(null);
+  const cfg = buildCfgForModel(s, override || {});
 
-  // 从 storage 读取 API Key
-  const stored = await chrome.storage.local.get([cfg.keyName]);
-  const apiKey = stored[cfg.keyName];
+  if (!cfg.hasRow) {
+    throw Object.assign(
+      new Error('没有可用的已启用模型，请前往设置页添加并启用至少一个模型。'),
+      { notConfigured: true }
+    );
+  }
 
-  if (!apiKey || apiKey.trim() === '') {
-    throw new Error(
-      `尚未配置 ${cfg.label} 的 API Key。\n` +
-      `请右键点击扩展图标 → 选项，进入设置页面填写。`
+  if (cfg.missingKey || !cfg.apiKey) {
+    throw Object.assign(
+      new Error('该模型的 API Key 未配置，请前往设置页填写'),
+      { notConfigured: true }
+    );
+  }
+
+  if (!cfg.model) {
+    throw Object.assign(
+      new Error('该模型的 Model ID 无效，请前往设置页检查。'),
+      { notConfigured: true }
     );
   }
 
   const systemPrompt = buildSystemPrompt(type);
 
-  const requestBody = {
-    model:      cfg.model,
-    messages: [
-      { role: 'system', content: systemPrompt },
-      { role: 'user',   content: text },
-    ],
-    stream:     false,
-    max_tokens: 1024,
-    temperature: 0.3,
-  };
+  if (cfg.protocol === 'anthropic') {
+    return ClaudeAdapter.fetchText(text, systemPrompt, cfg.apiKey, cfg);
+  }
+  return OpenAIAdapter.fetchText(text, systemPrompt, cfg.apiKey, cfg);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  请求分发器 — 视觉（图片/截图）翻译
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * 视觉翻译统一入口
+ * @param {string} base64
+ * @param {string} mimeType
+ * @returns {Promise<string>}
+ */
+async function fetchVision(base64, mimeType) {
+  const s = await chrome.storage.local.get(null);
+  const cfg = buildCfgForModel(s, {});
+
+  if (!cfg.hasRow) {
+    throw Object.assign(
+      new Error('没有可用的已启用模型，请前往设置页添加并启用至少一个模型。'),
+      { notConfigured: true }
+    );
+  }
+
+  if (cfg.missingKey || !cfg.apiKey) {
+    throw Object.assign(
+      new Error('该模型的 API Key 未配置，请前往设置页填写'),
+      { notConfigured: true }
+    );
+  }
+
+  if (!cfg.model) {
+    throw Object.assign(
+      new Error('该模型的 Model ID 无效，请前往设置页检查。'),
+      { notConfigured: true }
+    );
+  }
+
+  const systemPrompt = buildSystemPrompt('vision');
+
+  if (cfg.protocol === 'anthropic') {
+    return ClaudeAdapter.fetchVision(base64, mimeType, systemPrompt, cfg.apiKey, cfg);
+  }
+  return OpenAIAdapter.fetchVision(base64, mimeType, systemPrompt, cfg.apiKey, cfg);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  HistoryManager — 本地翻译历史（chrome.storage.local）
+// ═══════════════════════════════════════════════════════════════════════════
+
+class HistoryManager {
+  static MAX_RECORDS = 200;
+  static STORAGE_KEY = 'translationHistory';
+
+  static async save({ originalText, result, model, pageTitle }) {
+    try {
+      let list = await HistoryManager._load();
+
+      const record = {
+        id:           `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        timestamp:    Date.now(),
+        originalText: (originalText || '').slice(0, 500),
+        result:       (result || '').slice(0, 2000),
+        model:        model || 'unknown',
+        pageTitle:    (pageTitle || '').slice(0, 100),
+      };
+
+      list.unshift(record);
+      if (list.length > HistoryManager.MAX_RECORDS) {
+        list = list.slice(0, HistoryManager.MAX_RECORDS);
+      }
+
+      await chrome.storage.local.set({ [HistoryManager.STORAGE_KEY]: list });
+    } catch (err) {
+      console.warn('[NyaTranslate][History] 存储历史失败:', err);
+    }
+  }
+
+  static async getAll() {
+    return HistoryManager._load();
+  }
+
+  static async clear() {
+    await chrome.storage.local.set({ [HistoryManager.STORAGE_KEY]: [] });
+  }
+
+  static async _load() {
+    const stored = await chrome.storage.local.get([HistoryManager.STORAGE_KEY]);
+    const list   = stored[HistoryManager.STORAGE_KEY];
+    return Array.isArray(list) ? list : [];
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  截图调度器
+//  background 直接拥有 captureVisibleTab 控制权，push dataUrl 给 content.js
+//  消除 popup 关闭导致的时序问题
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * 对指定 tab 截取当前视口，并将 dataUrl push 给 content.js 的 ScreenshotOverlay
+ * @param {{ id: number, windowId: number }} tab
+ */
+async function initiateScreenshot(tab) {
+  let dataUrl;
+  try {
+    dataUrl = await new Promise((resolve, reject) => {
+      chrome.tabs.captureVisibleTab(tab.windowId, { format: 'png' }, (url) => {
+        if (chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message));
+        } else {
+          resolve(url);
+        }
+      });
+    });
+  } catch (e) {
+    console.error('[NyaTranslate][Screenshot] captureVisibleTab 失败:', e);
+    chrome.tabs.sendMessage(tab.id, {
+      action: 'nya-vision-error',
+      error:  `截图失败：${e.message}`,
+    }).catch(() => {});
+    return;
+  }
+
+  // 将截图 dataUrl 直接 push 给 content.js，由 ScreenshotOverlay 接管
+  chrome.tabs.sendMessage(tab.id, {
+    action:  'nya-screenshot-start',
+    dataUrl,
+  }).catch((e) => {
+    console.error('[NyaTranslate][Screenshot] 无法发送消息到 content.js:', e);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  右键菜单注册
+// ═══════════════════════════════════════════════════════════════════════════
+
+chrome.contextMenus.removeAll(() => {
+  // 图片取词
+  chrome.contextMenus.create({
+    id:       'nya-translate-image',
+    title:    '提取图片文字并翻译 (NyaTranslate)',
+    contexts: ['image'],
+  });
+
+  // 区域截图翻译（全页面右键均可触发）
+  chrome.contextMenus.create({
+    id:       'nya-screenshot-area',
+    title:    '区域截图翻译 (NyaTranslate)',
+    contexts: ['all'],
+  });
+});
+
+// ─── 图片 URL → Base64 工具 ────────────────────────────────────────────────
+
+async function imageUrlToBase64(srcUrl) {
+  if (srcUrl.startsWith('data:')) {
+    const [header, data] = srcUrl.split(',');
+    const mimeType = header.match(/data:([^;]+)/)?.[1] || 'image/png';
+    return { base64: data, mimeType };
+  }
 
   let response;
   try {
-    response = await fetch(cfg.baseUrl, {
-      method:  'POST',
-      headers: {
-        'Content-Type':  'application/json',
-        'Authorization': `Bearer ${apiKey.trim()}`,
-      },
-      body: JSON.stringify(requestBody),
-    });
-  } catch (networkErr) {
-    throw new Error(`网络请求失败，请检查网络连接。(${networkErr.message})`);
+    response = await fetch(srcUrl);
+  } catch (e) {
+    throw new Error(`无法获取图片资源：${e.message}`);
   }
+  if (!response.ok) throw new Error(`图片加载失败 (HTTP ${response.status})`);
 
-  if (!response.ok) {
-    let errMsg = `API 请求失败 (HTTP ${response.status})`;
-    try {
-      const errData = await response.json();
-      if (errData?.error?.message) {
-        errMsg = errData.error.message;
-      }
-    } catch (_) { /* 忽略 JSON 解析失败 */ }
-    throw new Error(errMsg);
+  const blob     = await response.blob();
+  const mimeType = blob.type || 'image/png';
+  const buffer   = await blob.arrayBuffer();
+
+  const bytes  = new Uint8Array(buffer);
+  let   binary = '';
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
   }
-
-  const data = await response.json();
-  const content = data?.choices?.[0]?.message?.content;
-
-  if (!content) throw new Error('模型返回了空内容，请重试。');
-
-  return content.trim();
+  return { base64: btoa(binary), mimeType };
 }
 
-// ─── 消息路由 ─────────────────────────────────────────────────────────────────
+// ─── 右键菜单事件处理 ─────────────────────────────────────────────────────
 
-/**
- * 消息格式：{ action: 'translate'|'explain', text: string, model: 'deepseek'|'qwen' }
- * 响应格式：{ success: true, result: string } | { success: false, error: string }
- */
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  // 只处理来自 content script (tab) 的消息
-  if (!sender.tab) return false;
-
-  const { action, text, model } = message;
-
-  if (!text || typeof text !== 'string' || text.trim() === '') {
-    sendResponse({ success: false, error: '文本内容无效。' });
-    return true;
+chrome.contextMenus.onClicked.addListener(async (info, tab) => {
+  // ── 区域截图翻译 ──
+  if (info.menuItemId === 'nya-screenshot-area') {
+    initiateScreenshot(tab);
+    return;
   }
 
-  if (!['translate', 'explain', 'combined'].includes(action)) {
-    sendResponse({ success: false, error: `未知的动作: ${action}` });
-    return true;
+  // ── 图片取词 ──
+  if (info.menuItemId === 'nya-translate-image') {
+    if (!info.srcUrl) return;
+
+    try {
+      await chrome.tabs.sendMessage(tab.id, { action: 'nya-vision-loading' });
+    } catch (_) { /* content script 可能未就绪 */ }
+
+    try {
+      const { base64, mimeType } = await imageUrlToBase64(info.srcUrl);
+      const result               = await fetchVision(base64, mimeType);
+      const s                    = await chrome.storage.local.get(null);
+      const cfg                  = buildCfgForModel(s, {});
+
+      chrome.tabs.sendMessage(tab.id, {
+        action: 'nya-vision-result',
+        result,
+        label:  cfg.label,
+      });
+
+      HistoryManager.save({
+        originalText: `[图片] ${info.srcUrl.slice(0, 80)}`,
+        result,
+        model:     cfg.label || cfg.model || 'unknown',
+        pageTitle: tab.title || '',
+      });
+    } catch (err) {
+      console.error('[NyaTranslate][Vision] 图片翻译失败:', err);
+      chrome.tabs.sendMessage(tab.id, {
+        action: 'nya-vision-error',
+        error:  err.message,
+      }).catch(() => {});
+    }
   }
-
-  if (!MODEL_CONFIG[model]) {
-    sendResponse({ success: false, error: `未知的模型: ${model}` });
-    return true;
-  }
-
-  fetchLLM(text.trim(), action, model)
-    .then((result)  => sendResponse({ success: true, result }))
-    .catch((err)    => {
-      console.error(`[划词助手][${model}] 请求失败:`, err);
-      sendResponse({ success: false, error: err.message });
-    });
-
-  // 必须返回 true，告知 Chrome 将异步发送响应
-  return true;
 });
 
-console.log('[划词助手] Background Service Worker v2 已启动。');
+// ─── 键盘快捷键处理 ───────────────────────────────────────────────────────
+
+chrome.commands.onCommand.addListener(async (command) => {
+  if (command !== 'nya-screenshot') return;
+
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (tab) initiateScreenshot(tab);
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  消息路由
+// ═══════════════════════════════════════════════════════════════════════════
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  const { action } = message;
+
+  // ── 文本翻译/解释 ──────────────────────────────────────────────────────
+  if (['translate', 'explain', 'combined'].includes(action)) {
+    if (!sender.tab) return false;
+
+    const { text, targetModelId, modelId } = message;
+
+    if (!text || typeof text !== 'string' || text.trim() === '') {
+      sendResponse({ success: false, error: '文本内容无效。' });
+      return true;
+    }
+
+    const tid = (typeof targetModelId === 'string' && targetModelId.trim())
+      ? targetModelId.trim()
+      : (typeof modelId === 'string' && modelId.trim() ? modelId.trim() : '');
+    const override = tid ? { targetModelId: tid } : {};
+
+    fetchLLM(text.trim(), action, override)
+      .then((result) => {
+        sendResponse({ success: true, result });
+
+        // 静默存储历史（跳过 explain，避免与 combined 重复）
+        if (action !== 'explain') {
+          chrome.storage.local.get(null, (s) => {
+            const cfg = buildCfgForModel(s || {}, override);
+            HistoryManager.save({
+              originalText: text.trim(),
+              result,
+              model:     cfg.label || cfg.model || 'unknown',
+              pageTitle: sender.tab?.title || '',
+            });
+          });
+        }
+      })
+      .catch((err) => {
+        console.error(`[NyaTranslate][LLM] 请求失败:`, err);
+        // notConfigured 标记透传给 content.js，用于区分"未配置"和"API 错误"
+        sendResponse({
+          success:        false,
+          error:          err.message,
+          notConfigured:  !!err.notConfigured,
+        });
+      });
+
+    return true;
+  }
+
+  // ── 框选完成：content.js 发来裁剪好的 Base64 ─────────────────────────
+  if (action === 'nya-vision-crop') {
+    if (!sender.tab) return false;
+
+    const { base64, mimeType, x, y } = message;
+
+    fetchVision(base64, mimeType)
+      .then(async (result) => {
+        const s   = await chrome.storage.local.get(null);
+        const cfg = buildCfgForModel(s, {});
+        chrome.tabs.sendMessage(sender.tab.id, {
+          action: 'nya-vision-result',
+          result,
+          label:  cfg.label,
+          x, y,
+        });
+        HistoryManager.save({
+          originalText: '[截图区域]',
+          result,
+          model:     cfg.label || cfg.model || 'unknown',
+          pageTitle: sender.tab?.title || '',
+        });
+      })
+      .catch((err) => {
+        console.error('[NyaTranslate][Vision] 截图翻译失败:', err);
+        chrome.tabs.sendMessage(sender.tab.id, {
+          action: 'nya-vision-error',
+          error:  err.message,
+        }).catch(() => {});
+      });
+
+    sendResponse({ success: true });
+    return true;
+  }
+
+  // ── 历史记录操作 ──────────────────────────────────────────────────────
+  if (action === 'nya-history-get') {
+    HistoryManager.getAll()
+      .then((list) => sendResponse({ success: true, list }))
+      .catch((err) => sendResponse({ success: false, error: err.message }));
+    return true;
+  }
+
+  if (action === 'nya-history-clear') {
+    HistoryManager.clear()
+      .then(() => sendResponse({ success: true }))
+      .catch((err) => sendResponse({ success: false, error: err.message }));
+    return true;
+  }
+
+  return false;
+});
+
+console.log('[NyaTranslate] Background Service Worker v4.0 已启动（每模型独立鉴权）。');

@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "NyaTranslate-喵译",
-  "version": "2.0.0",
-  "description": "划选网页文字，通过 DeepSeek 或通义千问即时获取翻译和专业术语解释。",
+  "version": "3.1.0",
+  "description": "划选网页文字，通过任意 OpenAI 兼容或 Anthropic 模型即时获取翻译和专业术语解释；支持截图/图片视觉翻译。",
   "icons": {
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
@@ -17,12 +17,23 @@
     "default_title": "NyaTranslate-喵译"
   },
   "permissions": [
-    "storage"
+    "storage",
+    "contextMenus",
+    "activeTab",
+    "scripting"
   ],
   "host_permissions": [
-    "https://api.deepseek.com/*",
-    "https://dashscope.aliyuncs.com/*"
+    "<all_urls>"
   ],
+  "commands": {
+    "nya-screenshot": {
+      "suggested_key": {
+        "default": "Alt+Shift+S",
+        "mac": "MacCtrl+Shift+S"
+      },
+      "description": "NyaTranslate 区域截图翻译"
+    }
+  },
   "options_page": "options.html",
   "background": {
     "service_worker": "background.js"
@@ -33,9 +44,12 @@
         "<all_urls>"
       ],
       "js": [
+        "appearance.js",
+        "material-select.js",
         "content.js"
       ],
       "css": [
+        "theme.css",
         "style.css"
       ],
       "run_at": "document_idle"

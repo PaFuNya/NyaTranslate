@@ -9,21 +9,22 @@
    ═══════════════════════════════════════════════════════════════════════════ */
 .my-ext-panel,
 #my-ext-icon {
-  --ext-accent: #5b6af0;
-  --ext-accent-hover: #4554e8;
-  --ext-accent-active: #3644d8;
-  --ext-accent-soft: #eef0ff;
-  --ext-bg: #ffffff;
-  --ext-border: rgba(0, 0, 0, 0.07);
-  --ext-shadow-icon: 0 2px 8px rgba(91, 106, 240, 0.45), 0 0 0 1px rgba(91, 106, 240, 0.2);
-  --ext-shadow-panel: 0 4px 6px -1px rgba(0, 0, 0, 0.08),
-    0 12px 28px -4px rgba(0, 0, 0, 0.14),
-    0 0 0 1px rgba(0, 0, 0, 0.04);
+  --ext-accent: var(--md-sys-color-primary, #5b6af0);
+  --ext-accent-hover: color-mix(in srgb, var(--md-sys-color-primary, #5b6af0) 88%, #000);
+  --ext-accent-active: color-mix(in srgb, var(--md-sys-color-primary, #5b6af0) 75%, #000);
+  --ext-accent-soft: var(--md-sys-color-primary-container, #eef0ff);
+  --ext-bg: var(--md-sys-color-surface, #ffffff);
+  --ext-border: color-mix(in srgb, var(--md-sys-color-outline, #79747e) 28%, transparent);
+  --ext-shadow-icon: var(--md-sys-elevation-level2, 0 2px 8px rgba(0, 0, 0, 0.12)),
+    0 0 0 1px color-mix(in srgb, var(--md-sys-color-primary, #5b6af0) 22%, transparent);
+  --ext-shadow-panel: var(--md-sys-elevation-level3, 0 12px 28px rgba(0, 0, 0, 0.14)),
+    0 0 0 1px color-mix(in srgb, var(--md-sys-color-outline, #79747e) 12%, transparent);
   --ext-radius-icon: 50%;
-  --ext-radius-panel: 14px;
-  --ext-radius-btn: 8px;
+  --ext-radius-panel: var(--app-border-radius, 14px);
+  --ext-radius-btn: calc(var(--app-border-radius, 14px) * 0.55);
   --ext-font: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
     'Microsoft YaHei', 'Noto Sans SC', sans-serif;
+  --ext-font-mono: 'SF Mono', 'Fira Code', ui-monospace, monospace;
   --ext-text-primary: #111827;
   --ext-text-secondary: #6b7280;
   --ext-text-muted: #9ca3af;
@@ -45,8 +46,12 @@
   width: 34px;
   height: 34px;
   border-radius: var(--ext-radius-icon);
-  background: linear-gradient(135deg, #5b6af0 0%, #7c3aed 100%);
-  color: #ffffff;
+  background: linear-gradient(
+    135deg,
+    var(--md-sys-color-primary, #5b6af0) 0%,
+    color-mix(in srgb, var(--md-sys-color-tertiary, #7c3aed) 85%, var(--md-sys-color-primary, #5b6af0)) 100%
+  );
+  color: var(--md-sys-color-on-primary, #ffffff);
   cursor: pointer;
   box-shadow: var(--ext-shadow-icon);
   box-sizing: border-box;
@@ -67,7 +72,8 @@
 
 #my-ext-icon:hover {
   transform: scale(1.12);
-  box-shadow: 0 4px 16px rgba(91, 106, 240, 0.55), 0 0 0 2px rgba(91, 106, 240, 0.25);
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--md-sys-color-primary, #5b6af0) 45%, transparent),
+    0 0 0 2px color-mix(in srgb, var(--md-sys-color-primary, #5b6af0) 28%, transparent);
 }
 
 #my-ext-icon:active {
@@ -120,7 +126,11 @@
   gap: 6px;
   cursor: grab;
   user-select: none;
-  background: linear-gradient(180deg, #fafbff 0%, var(--ext-bg) 100%);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--md-sys-color-primary-container, #eef0ff) 35%, var(--ext-bg)) 0%,
+    var(--ext-bg) 100%
+  );
   flex-shrink: 0;
 }
 
@@ -132,8 +142,12 @@
   width: 22px;
   height: 22px;
   border-radius: 6px;
-  background: linear-gradient(135deg, #5b6af0 0%, #7c3aed 100%);
-  color: #fff;
+  background: linear-gradient(
+    135deg,
+    var(--md-sys-color-primary, #5b6af0) 0%,
+    color-mix(in srgb, var(--md-sys-color-tertiary, #7c3aed) 88%, var(--md-sys-color-primary, #5b6af0)) 100%
+  );
+  color: var(--md-sys-color-on-primary, #fff);
   flex-shrink: 0;
   box-sizing: border-box;
 }
@@ -146,6 +160,74 @@
   color: var(--ext-text-primary);
   letter-spacing: 0.02em;
   flex-shrink: 0;
+}
+
+.my-ext-vision-badge {
+  all: unset;
+  font-size: 10px;
+  font-weight: 600;
+  font-family: var(--ext-font);
+  color: var(--md-sys-color-primary, var(--ext-accent));
+  background: var(--md-sys-color-primary-container, var(--ext-accent-soft));
+  padding: 2px 6px;
+  border-radius: calc(var(--app-border-radius, 14px) * 0.35);
+  margin-left: 6px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.my-ext-panel-model-select {
+  all: unset;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: var(--ext-font-mono);
+  color: var(--ext-text-primary);
+  background: rgba(91, 106, 240, 0.08);
+  border: 1px solid rgba(91, 106, 240, 0.25);
+  border-radius: 6px;
+  padding: 3px 22px 3px 8px;
+  max-width: 140px;
+  cursor: pointer;
+  flex-shrink: 1;
+  box-sizing: border-box;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 5px center;
+  appearance: none;
+  -webkit-appearance: none;
+  transition: border-color var(--ext-transition), box-shadow var(--ext-transition),
+    background-color 0.2s ease;
+}
+
+.my-ext-panel-model-select:hover:not(:disabled) {
+  border-color: rgba(91, 106, 240, 0.45);
+  background-color: rgba(91, 106, 240, 0.12);
+}
+
+.my-ext-panel-model-select:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(91, 106, 240, 0.35);
+}
+
+.my-ext-panel-model-select:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* MaterialSelect 包装后：原生 select 仅用于同步 value，必须完全隐藏。
+   上方 .my-ext-panel-model-select 的 all:unset 会抵消 .nya-ms__native，需更高优先级。 */
+.my-ext-panel .nya-ms .my-ext-panel-model-select.nya-ms__native {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .my-ext-panel-spacer {
@@ -195,7 +277,7 @@
 }
 
 .my-ext-header-btn--active:hover {
-  background: #dde0fd !important;
+  background: color-mix(in srgb, var(--md-sys-color-primary, var(--ext-accent)) 18%, var(--ext-bg)) !important;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -213,10 +295,10 @@
   top: calc(100% + 4px);
   right: 0;
   z-index: 2147483647;
-  background: #ffffff;
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  border-radius: 10px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12), 0 1px 4px rgba(0, 0, 0, 0.06);
+  background: var(--md-sys-color-surface-container-high, #ffffff);
+  border: 1px solid color-mix(in srgb, var(--md-sys-color-outline, #79747e) 18%, transparent);
+  border-radius: calc(var(--app-border-radius, 14px) * 0.72);
+  box-shadow: var(--md-sys-elevation-level3, 0 4px 16px rgba(0, 0, 0, 0.12));
   padding: 4px;
   min-width: 160px;
   box-sizing: border-box;

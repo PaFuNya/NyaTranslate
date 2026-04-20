@@ -1,10 +1,12 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" class="nya-extension-ui" data-theme="light" data-theme-mode="system" data-palette="ocean"
+  data-background="tonal">
 
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>NyaTranslate-喵译 · 设置</title>
+  <link rel="stylesheet" href="theme.css" />
   <link rel="stylesheet" href="options.css" />
 </head>
 
@@ -85,6 +87,20 @@
           <span>偏好设置喵~</span>
         </button>
 
+        <!-- 个性化 -->
+        <button class="nav-item" data-section="appearance">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="13.5" cy="6.5" r=".5" fill="currentColor" />
+            <circle cx="17.5" cy="10.5" r=".5" fill="currentColor" />
+            <circle cx="8.5" cy="7.5" r=".5" fill="currentColor" />
+            <circle cx="6.5" cy="12.5" r=".5" fill="currentColor" />
+            <path
+              d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z" />
+          </svg>
+          <span>个性化喵~</span>
+        </button>
+
         <!-- 关于 -->
         <button class="nav-item" data-section="about">
           <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -115,79 +131,126 @@
       <section id="section-api-config" class="section section--active">
         <div class="section-header">
           <h1 class="section-title">API配置喵~</h1>
-          <p class="section-desc">配置各模型的API Key喵~Key仅保存在本地，绝不上传喵！</p>
+          <p class="section-desc">
+            为每个模型单独填写 Base URL 与 API Key，可同时接入多家服务商喵~凭证仅保存在本机，绝不上传喵！
+          </p>
         </div>
 
-        <!-- DeepSeek -->
-        <div class="card">
+        <!-- ── 模型管理器（Cursor 风格列表 + 开关） ── -->
+        <div class="card model-manager-card">
           <div class="card-head">
-            <div class="card-brand card-brand--deepseek">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-                <path
-                  d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z" />
+            <div class="card-brand">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="3" />
+                <path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83" />
               </svg>
-              DeepSeek
+              模型列表
             </div>
-            <span class="card-badge">deepseek-chat</span>
+            <span class="card-badge">启用 · 划词 / 视觉共用首项</span>
           </div>
 
-          <div class="field">
-            <label class="field-label" for="deepseek-key">
-              API Key
-              <a href="https://platform.deepseek.com/api_keys" target="_blank" class="field-link">获取 Key ↗</a>
-            </label>
-            <div class="input-wrap">
-              <input type="password" id="deepseek-key" class="field-input"
-                placeholder="sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" autocomplete="off" spellcheck="false" />
-              <button class="eye-btn" data-target="deepseek-key" aria-label="显示/隐藏">
-                <svg class="eye-icon" data-eye="deepseek-key" xmlns="http://www.w3.org/2000/svg" width="16" height="16"
-                  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                  stroke-linejoin="round">
-                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                  <circle cx="12" cy="12" r="3" />
+          <p class="field-desc model-manager-hint">
+            每个模型独立配置 Base URL 与 API Key。用开关控制是否在面板中可选；截图与图片翻译使用<strong>第一个已启用</strong>的模型。
+          </p>
+
+          <div class="model-toolbar">
+            <button type="button" class="btn-add-model" id="btn-open-add-model">
+              <span class="btn-add-model__icon">+</span>
+              添加模型
+            </button>
+          </div>
+
+          <div id="models-list" class="models-list" role="list"></div>
+        </div>
+
+        <!-- ── 添加/编辑模型 Modal ── -->
+        <div id="model-modal-backdrop" class="modal-backdrop" aria-hidden="true"></div>
+        <div id="model-modal" class="modal-sheet" role="dialog" aria-modal="true" aria-labelledby="model-modal-title"
+          aria-hidden="true">
+          <div class="modal-sheet__surface">
+            <div class="modal-sheet__head">
+              <h2 id="model-modal-title" class="modal-sheet__title">添加模型</h2>
+              <button type="button" class="modal-sheet__close" id="model-modal-close" aria-label="关闭">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+                  stroke-linecap="round">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
                 </svg>
               </button>
             </div>
-            <div class="key-status" id="status-deepseek"></div>
-          </div>
-        </div>
-
-        <!-- 通义千问 -->
-        <div class="card">
-          <div class="card-head">
-            <div class="card-brand card-brand--qwen">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-                <path
-                  d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z" />
-              </svg>
-              通义千问
+            <div class="modal-sheet__body">
+              <div class="field">
+                <label class="field-label" for="modal-preset">预设服务商</label>
+                <div class="select-wrap">
+                  <select id="modal-preset" class="field-select">
+                    <option value="custom">自定义</option>
+                    <option value="deepseek">DeepSeek</option>
+                    <option value="qwen">通义千问（兼容模式）</option>
+                    <option value="openai">OpenAI</option>
+                    <option value="claude">Claude（Anthropic）</option>
+                  </select>
+                  <svg class="select-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="6 9 12 15 18 9" />
+                  </svg>
+                </div>
+              </div>
+              <div class="field" id="modal-protocol-field">
+                <label class="field-label" for="modal-protocol">协议类型</label>
+                <div class="select-wrap">
+                  <select id="modal-protocol" class="field-select">
+                    <option value="openai">OpenAI 兼容</option>
+                    <option value="anthropic">Anthropic (Claude)</option>
+                  </select>
+                  <svg class="select-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="6 9 12 15 18 9" />
+                  </svg>
+                </div>
+                <p class="field-desc" id="modal-protocol-hint">选择「自定义」时可手动切换协议；其他预设将自动设定。</p>
+              </div>
+              <div class="field">
+                <label class="field-label" for="modal-display-name">显示名称</label>
+                <input type="text" id="modal-display-name" class="field-input" placeholder="例如：我的千问 VL"
+                  autocomplete="off" spellcheck="false" />
+              </div>
+              <div class="field">
+                <label class="field-label" for="modal-model-id">Model ID</label>
+                <input type="text" id="modal-model-id" class="field-input field-input--mono"
+                  placeholder="发给接口的真实模型 ID，如 qwen-vl-plus" autocomplete="off" spellcheck="false" />
+              </div>
+              <div class="field">
+                <label class="field-label" for="modal-base-url">Base URL</label>
+                <input type="text" id="modal-base-url" class="field-input field-input--mono"
+                  placeholder="https://api.example.com/v1" autocomplete="off" spellcheck="false" />
+                <p class="field-desc">填写到 <code>/v1</code> 路径即可，无需包含 <code>/chat/completions</code>。</p>
+              </div>
+              <div class="field">
+                <label class="field-label" for="modal-api-key">API Key</label>
+                <div class="input-wrap">
+                  <input type="password" id="modal-api-key" class="field-input" placeholder="仅保存在本机"
+                    autocomplete="off" spellcheck="false" />
+                  <button class="eye-btn" type="button" id="modal-api-key-eye" data-target="modal-api-key"
+                    aria-label="显示/隐藏 API Key">
+                    <svg class="eye-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                      fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
             </div>
-            <span class="card-badge">qwen-plus</span>
-          </div>
-
-          <div class="field">
-            <label class="field-label" for="qwen-key">
-              API Key
-              <a href="https://bailian.console.aliyun.com/" target="_blank" class="field-link">获取 Key ↗</a>
-            </label>
-            <div class="input-wrap">
-              <input type="password" id="qwen-key" class="field-input" placeholder="sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-                autocomplete="off" spellcheck="false" />
-              <button class="eye-btn" data-target="qwen-key" aria-label="显示/隐藏">
-                <svg class="eye-icon" data-eye="qwen-key" xmlns="http://www.w3.org/2000/svg" width="16" height="16"
-                  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                  stroke-linejoin="round">
-                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                  <circle cx="12" cy="12" r="3" />
-                </svg>
-              </button>
+            <div class="modal-sheet__footer">
+              <button type="button" class="btn-tonal" id="model-modal-cancel">取消</button>
+              <button type="button" class="btn-primary modal-sheet__save" id="model-modal-save">保存</button>
             </div>
-            <div class="key-status" id="status-qwen"></div>
           </div>
         </div>
 
         <div class="section-actions">
-          <button class="btn-primary" id="btn-save-api">保存 API 配置</button>
+          <button class="btn-primary" id="btn-save-api">保存 API 配置喵~</button>
         </div>
       </section>
 
@@ -360,6 +423,105 @@
         </div>
       </section>
 
+      <!-- ─── Section: 个性化 ─── -->
+      <section id="section-appearance" class="section">
+        <div class="section-header">
+          <h1 class="section-title">个性化喵~</h1>
+          <p class="section-desc">Material You 主题、圆角与背景，全端即时同步喵~</p>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <div class="card-brand">
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="5" />
+                <line x1="12" y1="1" x2="12" y2="3" />
+                <line x1="12" y1="21" x2="12" y2="23" />
+                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+                <line x1="1" y1="12" x2="3" y2="12" />
+                <line x1="21" y1="12" x2="23" y2="12" />
+                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+              </svg>
+              外观模式
+            </div>
+          </div>
+          <div class="appearance-mode-grid" role="radiogroup" aria-label="外观模式">
+            <button type="button" class="appearance-mode-card" data-theme-mode="light" role="radio"
+              aria-checked="false">
+              <span class="appearance-mode-card__title">浅色模式</span>
+              <span class="appearance-mode-card__desc">始终使用浅色界面</span>
+            </button>
+            <button type="button" class="appearance-mode-card" data-theme-mode="dark" role="radio"
+              aria-checked="false">
+              <span class="appearance-mode-card__title">深色模式</span>
+              <span class="appearance-mode-card__desc">始终使用深色界面</span>
+            </button>
+            <button type="button" class="appearance-mode-card" data-theme-mode="system" role="radio"
+              aria-checked="true">
+              <span class="appearance-mode-card__title">跟随系统</span>
+              <span class="appearance-mode-card__desc">随系统亮/暗自动切换</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <div class="card-brand">
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z" />
+              </svg>
+              主题色
+            </div>
+          </div>
+          <p class="field-desc">选择 Monet 调色盘（划词面板与弹窗同步）</p>
+          <div class="appearance-palette-row" role="group" aria-label="主题色">
+            <button type="button" class="appearance-palette-dot" data-palette="ocean" title="浅蓝白"
+              aria-label="浅蓝白" aria-pressed="true">
+              <span class="appearance-palette-dot__inner appearance-palette-dot__inner--ocean"></span>
+            </button>
+            <button type="button" class="appearance-palette-dot" data-palette="mint" title="莫奈薄荷绿"
+              aria-label="莫奈薄荷绿" aria-pressed="false">
+              <span class="appearance-palette-dot__inner appearance-palette-dot__inner--mint"></span>
+            </button>
+            <button type="button" class="appearance-palette-dot" data-palette="lilac" title="莫奈丁香紫"
+              aria-label="莫奈丁香紫" aria-pressed="false">
+              <span class="appearance-palette-dot__inner appearance-palette-dot__inner--lilac"></span>
+            </button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <div class="card-brand">圆角大小</div>
+            <span class="card-badge" id="appearance-radius-label">16px</span>
+          </div>
+          <input type="range" id="appearance-radius" class="appearance-radius-slider" min="8" max="28" value="16"
+            aria-valuemin="8" aria-valuemax="28" aria-valuenow="16" aria-label="全局圆角" />
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <div class="card-brand">页面背景</div>
+          </div>
+          <p class="field-desc">纯白/纯黑基面，或带 Tonal 染色的柔和背景</p>
+          <div class="appearance-bg-grid" role="radiogroup" aria-label="页面背景">
+            <button type="button" class="appearance-bg-card" data-background="tonal" role="radio" aria-checked="true">
+              <span class="appearance-bg-card__title">Tonal 染色</span>
+              <span class="appearance-bg-card__desc">极淡主色渐变</span>
+            </button>
+            <button type="button" class="appearance-bg-card" data-background="pure" role="radio" aria-checked="false">
+              <span class="appearance-bg-card__title">纯色基面</span>
+              <span class="appearance-bg-card__desc">纯白或纯黑</span>
+            </button>
+          </div>
+        </div>
+
+        <p class="appearance-sync-hint">更改已自动保存并同步到划词面板与扩展弹窗喵~</p>
+      </section>
+
       <!-- ─── Section: 关于 ─── -->
       <section id="section-about" class="section">
         <div class="section-header">
@@ -394,7 +556,7 @@
             </div>
           </div>
           <ol class="usage-list">
-            <li>在<strong>API配置喵~</strong>页填入DeepSeek或通义千问的API Key并保存喵~</li>
+            <li>在<strong>API配置喵~</strong>页添加模型并填写各服务商的 Key 与端点喵~</li>
             <li>在<strong>触发规则喵~</strong>页配置各场景的触发方式（默认：划词显示小图标）喵~</li>
             <li>在任意网页上，用鼠标划选文字（1~500字符）喵~</li>
             <li>点击出现的气泡图标，DeepSeek和通义千问将<strong>同时</strong>返回结果喵~</li>
@@ -412,6 +574,8 @@
     </main>
   </div>
 
+  <script src="appearance.js"></script>
+  <script src="material-select.js"></script>
   <script src="options.js"></script>
 </body>
 
