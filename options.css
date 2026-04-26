@@ -61,7 +61,7 @@ html.nya-extension-ui body {
 }
 
 .toast.toast--success {
-  background: linear-gradient(135deg, #2d2640 0%, var(--md-primary) 100%);
+  background: var(--md-primary);
   color: var(--md-sys-color-on-primary);
 }
 
@@ -145,7 +145,7 @@ html.nya-extension-ui body {
   width: 40px;
   height: 40px;
   border-radius: 14px;
-  background: linear-gradient(145deg, var(--md-tertiary-container) 0%, var(--md-primary) 55%, #4a3868 100%);
+  background: var(--md-primary);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -301,12 +301,12 @@ html.nya-extension-ui body {
 }
 
 .main-content::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, var(--md-primary) 0%, var(--md-tertiary) 100%);
+  background: var(--md-primary);
   border-radius: 4px;
 }
 
 .main-content::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, var(--accent-hover) 0%, var(--md-tertiary) 100%);
+  background: var(--accent-hover);
 }
 
 /* ── Section ── */
@@ -340,23 +340,8 @@ html.nya-extension-ui body {
 .section-title {
   font-size: 26px;
   font-weight: 700;
-  color: var(--text-primary);
+  color: var(--md-primary);
   line-height: 1.2;
-  background: linear-gradient(120deg, var(--md-primary) 0%, var(--md-tertiary) 55%, #386a59 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  animation: titleGlow 3.2s var(--ease-standard) infinite alternate;
-}
-
-@keyframes titleGlow {
-  from {
-    filter: brightness(1) saturate(1);
-  }
-
-  to {
-    filter: brightness(1.06) saturate(1.08);
-  }
 }
 
 .section-desc {
@@ -499,7 +484,8 @@ html.nya-extension-ui body {
 
 .model-id-input {
   flex: 1;
-  padding-right: 14px !important;  /* 无 eye-btn，不需要留宽 */
+  padding-right: 14px !important;
+  /* 无 eye-btn，不需要留宽 */
 }
 
 .model-proto-select {
@@ -643,7 +629,7 @@ html.nya-extension-ui body {
 
 .btn-primary {
   padding: 12px 32px;
-  background: linear-gradient(135deg, var(--md-primary) 0%, color-mix(in srgb, var(--md-tertiary) 70%, var(--md-primary)) 100%);
+  background: var(--md-primary);
   color: var(--md-on-primary);
   border: none;
   border-radius: var(--radius-md);
@@ -664,12 +650,7 @@ html.nya-extension-ui body {
   left: -100%;
   width: 100%;
   height: 100%;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    color-mix(in srgb, var(--md-sys-color-on-primary) 20%, transparent),
-    transparent
-  );
+  background: var(--accent-hover);
   transition: left 0.5s ease;
 }
 
@@ -701,11 +682,7 @@ html.nya-extension-ui body {
 .about-card {
   text-align: center;
   padding: 40px 28px;
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--md-sys-color-surface-bright) 96%, var(--md-sys-color-primary-container)) 0%,
-    color-mix(in srgb, var(--md-sys-color-primary-container) 28%, var(--md-sys-color-surface)) 100%
-  );
+  background: var(--md-sys-color-primary-container);
 }
 
 .about-logo {
@@ -713,7 +690,7 @@ html.nya-extension-ui body {
   height: 64px;
   margin: 0 auto 16px;
   border-radius: 18px;
-  background: linear-gradient(135deg, var(--md-primary) 0%, color-mix(in srgb, var(--md-tertiary) 72%, var(--md-primary)) 100%);
+  background: var(--md-primary);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -737,11 +714,7 @@ html.nya-extension-ui body {
 .about-name {
   font-size: 22px;
   font-weight: 700;
-  color: var(--text-primary);
-  background: linear-gradient(135deg, var(--md-primary) 0%, color-mix(in srgb, var(--md-tertiary) 72%, var(--md-primary)) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: var(--md-primary);
 }
 
 .about-version {
@@ -777,27 +750,14 @@ html.nya-extension-ui body {
 
 /* ── 提示卡片（蓝色背景） ── */
 .tip-card {
-  background: linear-gradient(135deg, var(--accent-soft) 0%, color-mix(in srgb, var(--md-tertiary) 10%, transparent) 100%);
+  background: var(--accent-soft);
   border: 1px solid color-mix(in srgb, var(--md-primary) 22%, transparent);
   border-radius: var(--radius-lg);
   padding: 16px 20px;
   font-size: 13px;
-  color: #3a7edf;
+  color: var(--md-primary);
   line-height: 1.65;
   margin-top: 0;
-  animation: shimmer 2s ease-in-out infinite;
-}
-
-@keyframes shimmer {
-
-  0%,
-  100% {
-    background-position: 0% 50%;
-  }
-
-  50% {
-    background-position: 100% 50%;
-  }
 }
 
 .tip-card strong {
@@ -810,21 +770,6 @@ html.nya-extension-ui body {
   background: color-mix(in srgb, var(--md-primary) 14%, transparent);
   padding: 2px 6px;
   border-radius: 4px;
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   导航徽章（"核心"标签）
-   ═══════════════════════════════════════════════════════════════ */
-.nav-badge {
-  font-size: 10px;
-  font-weight: 600;
-  color: #f97316;
-  background: rgba(249, 115, 22, 0.15);
-  padding: 2px 8px;
-  border-radius: 5px;
-  margin-left: auto;
-  letter-spacing: 0.02em;
-  border: 1px solid rgba(249, 115, 22, 0.2);
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -920,7 +865,7 @@ html.nya-extension-ui body {
 /* 分隔线 */
 .field-divider {
   height: 1px;
-  background: linear-gradient(90deg, transparent, var(--border), transparent);
+  background: var(--border);
   margin: 18px 0;
 }
 
@@ -964,7 +909,7 @@ html.nya-extension-ui body {
 .lang-chip--checked,
 .lang-chip:has(input:checked) {
   border-color: var(--accent);
-  background: linear-gradient(135deg, var(--accent-soft) 0%, color-mix(in srgb, var(--md-tertiary) 10%, transparent) 100%);
+  background: var(--accent-soft);
   color: var(--accent);
   box-shadow: 0 2px 8px color-mix(in srgb, var(--md-primary) 22%, transparent);
 }
@@ -1040,7 +985,7 @@ html.nya-extension-ui body {
 }
 
 .trigger-check-label:has(input:checked) .trigger-checkmark {
-  background: linear-gradient(135deg, var(--md-primary) 0%, color-mix(in srgb, var(--md-tertiary) 72%, var(--md-primary)) 100%);
+  background: var(--md-primary);
   border-color: var(--accent);
   animation: checkPop 0.3s ease;
 }
@@ -1137,7 +1082,7 @@ html.nya-extension-ui body {
 .modifier-key--checked,
 .modifier-key:has(input:checked) {
   border-color: var(--accent);
-  background: linear-gradient(135deg, var(--accent-soft) 0%, color-mix(in srgb, var(--md-tertiary) 10%, transparent) 100%);
+  background: var(--accent-soft);
   color: var(--accent);
   box-shadow: 0 2px 8px color-mix(in srgb, var(--md-primary) 22%, transparent);
 }
@@ -1195,7 +1140,7 @@ html.nya-extension-ui body {
   font-family: var(--font);
   cursor: pointer;
   color: var(--md-on-primary);
-  background: linear-gradient(135deg, var(--md-primary) 0%, color-mix(in srgb, var(--md-tertiary) 65%, var(--md-primary)) 100%);
+  background: var(--md-primary);
   box-shadow: 0 4px 16px color-mix(in srgb, var(--md-primary) 30%, transparent);
   transition: transform 260ms var(--ease-emphasized), box-shadow var(--transition), filter var(--transition);
 }
@@ -1235,11 +1180,7 @@ html.nya-extension-ui body {
   padding: 14px 16px;
   border-radius: var(--radius-md);
   border: 1px solid var(--border);
-  background: linear-gradient(
-    145deg,
-    var(--md-surface-container) 0%,
-    var(--md-sys-color-surface-bright) 65%
-  );
+  background: var(--md-surface-container);
   box-shadow: var(--shadow-card);
   animation: modelRowIn 0.5s var(--ease-emphasized) backwards;
   animation-delay: calc(min(var(--stagger, 0), 12) * 42ms);
@@ -1356,16 +1297,16 @@ html.nya-extension-ui body {
   transition: transform 0.38s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-.model-toggle input:checked + .model-toggle-slider {
-  background: linear-gradient(135deg, var(--md-primary) 0%, color-mix(in srgb, var(--md-tertiary) 80%, var(--md-primary)) 100%);
+.model-toggle input:checked+.model-toggle-slider {
+  background: var(--md-primary);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--md-primary) 22%, transparent);
 }
 
-.model-toggle input:checked + .model-toggle-slider::after {
+.model-toggle input:checked+.model-toggle-slider::after {
   transform: translateY(-50%) translateX(20px);
 }
 
-.model-toggle input:focus-visible + .model-toggle-slider {
+.model-toggle input:focus-visible+.model-toggle-slider {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
@@ -1592,15 +1533,15 @@ html.nya-extension-ui body {
 }
 
 .appearance-palette-dot__inner--ocean {
-  background: linear-gradient(145deg, #6eb0ff 0%, #3767c8 100%);
+  background: #6eb0ff;
 }
 
 .appearance-palette-dot__inner--mint {
-  background: linear-gradient(145deg, #a8d4c8 0%, #4a6b62 100%);
+  background: #a8d4c8;
 }
 
 .appearance-palette-dot__inner--lilac {
-  background: linear-gradient(145deg, #d4c4f5 0%, #6b5b95 100%);
+  background: #d4c4f5;
 }
 
 .appearance-radius-slider {

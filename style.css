@@ -46,11 +46,7 @@
   width: 34px;
   height: 34px;
   border-radius: var(--ext-radius-icon);
-  background: linear-gradient(
-    135deg,
-    var(--md-sys-color-primary, #5b6af0) 0%,
-    color-mix(in srgb, var(--md-sys-color-tertiary, #7c3aed) 85%, var(--md-sys-color-primary, #5b6af0)) 100%
-  );
+  background: var(--md-sys-color-primary, #0a56d9);
   color: var(--md-sys-color-on-primary, #ffffff);
   cursor: pointer;
   box-shadow: var(--ext-shadow-icon);
@@ -126,11 +122,7 @@
   gap: 6px;
   cursor: grab;
   user-select: none;
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--md-sys-color-primary-container, #eef0ff) 35%, var(--ext-bg)) 0%,
-    var(--ext-bg) 100%
-  );
+  background: var(--md-sys-color-surface-container-low, #f0f4fa);
   flex-shrink: 0;
 }
 
@@ -142,11 +134,7 @@
   width: 22px;
   height: 22px;
   border-radius: 6px;
-  background: linear-gradient(
-    135deg,
-    var(--md-sys-color-primary, #5b6af0) 0%,
-    color-mix(in srgb, var(--md-sys-color-tertiary, #7c3aed) 88%, var(--md-sys-color-primary, #5b6af0)) 100%
-  );
+  background: var(--md-sys-color-primary, #0a56d9);
   color: var(--md-sys-color-on-primary, #fff);
   flex-shrink: 0;
   box-sizing: border-box;

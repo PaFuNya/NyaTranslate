@@ -28,11 +28,7 @@ html.nya-extension-ui body {
   width: 32px;
   height: 32px;
   border-radius: calc(var(--app-border-radius, 16px) * 0.55);
-  background: linear-gradient(
-    135deg,
-    var(--md-sys-color-primary) 0%,
-    color-mix(in srgb, var(--md-sys-color-tertiary) 88%, var(--md-sys-color-primary)) 100%
-  );
+  background: var(--md-sys-color-primary);
   display: flex;
   align-items: center;
   justify-content: center;

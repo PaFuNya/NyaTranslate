@@ -329,12 +329,7 @@ html.nya-extension-ui {
   --radius-lg: var(--app-border-radius);
   --shadow-card: var(--md-sys-elevation-level1);
   --shadow-card-hover: var(--md-sys-elevation-level3);
-  --sidebar-bg: linear-gradient(
-    165deg,
-    color-mix(in srgb, var(--md-sys-color-primary) 18%, #1a1520) 0%,
-    color-mix(in srgb, var(--md-sys-color-tertiary) 12%, #252030) 48%,
-    #141218 100%
-  );
+  --sidebar-bg: color-mix(in srgb, var(--md-sys-color-primary) 20%, #121620);
   --sidebar-text: color-mix(in srgb, var(--md-sys-color-primary-container) 72%, var(--md-sys-color-surface-bright));
   --sidebar-active: var(--md-sys-color-on-primary-container);
   --md-surface: var(--md-sys-color-surface);
@@ -374,7 +369,7 @@ html.nya-extension-ui[data-theme="dark"] {
 }
 
 html.nya-extension-ui[data-background="tonal"][data-theme="light"] body {
-  background: radial-gradient(120% 100% at 10% 0%, color-mix(in srgb, var(--md-sys-color-primary) 12%, #fff) 0%, var(--md-sys-color-surface) 42%, color-mix(in srgb, var(--md-sys-color-tertiary-container) 18%, var(--md-sys-color-surface)) 100%);
+  background: var(--md-sys-color-surface);
   color: var(--md-sys-color-on-surface);
 }
 
@@ -384,7 +379,7 @@ html.nya-extension-ui[data-background="pure"][data-theme="light"] body {
 }
 
 html.nya-extension-ui[data-background="tonal"][data-theme="dark"] body {
-  background: radial-gradient(130% 100% at 10% 0%, color-mix(in srgb, var(--md-sys-color-primary) 22%, #0d0f14) 0%, var(--md-sys-color-surface) 55%, #0a0c10 100%);
+  background: var(--md-sys-color-surface);
   color: var(--md-sys-color-on-surface);
 }
 
