@@ -447,7 +447,8 @@ async function fetchLLM(text, type, override) {
   }
 
   const wordDetailEnabled = s.wordDetailEnabled !== false;
-  const isSingleWord = wordDetailEnabled && text.split(/\s+/).length === 1 && /^[a-zA-Z'-]+$/.test(text);
+  const trimmedText = text.trim();
+  const isSingleWord = wordDetailEnabled && trimmedText.split(/\s+/).length === 1 && /^[a-zA-Z'-]+$/.test(trimmedText);
   const complexity = s.exampleSentenceMode || 'simple';
   const systemPrompt = isSingleWord
     ? buildSystemPrompt(complexity === 'complex' ? 'dictionary-complex' : 'dictionary')
@@ -554,7 +555,9 @@ async function runOneModel(row, stored, { text, requestId, tabId, pageTitle }) {
 
   try {
     const wordDetailEnabled = stored.wordDetailEnabled !== false;
-    const isSingleWord = wordDetailEnabled && text.split(/\s+/).length === 1 && /^[a-zA-Z'-]+$/.test(text);
+    const trimmedText = text.trim();
+    const isSingleWord = wordDetailEnabled && trimmedText.split(/\s+/).length === 1 && /^[a-zA-Z'-]+$/.test(trimmedText);
+    console.debug('[NyaTranslate] wordDetect:', { wordDetailEnabled, text: trimmedText, isSingleWord });
     const complexity = stored.exampleSentenceMode || 'simple';
     const sysPrompt = isSingleWord
       ? buildSystemPrompt(complexity === 'complex' ? 'dictionary-complex' : 'dictionary')

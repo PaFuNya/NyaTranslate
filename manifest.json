@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "NyaTranslate-喵译",
-  "version": "3.1.0",
+  "version": "3.2.0",
   "description": "划选网页文字，通过任意 OpenAI 兼容或 Anthropic 模型即时获取翻译和专业术语解释；支持截图/图片视觉翻译。",
   "icons": {
     "16": "icons/icon16.png",
