@@ -26,6 +26,8 @@ const SVG_RESIZE = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="1
 const DEFAULT_CONFIG = {
   disableInInputs: true,
   touchMode: false,
+  exampleSentenceMode: 'simple',
+  wordDetailEnabled: true,
   languages: {
     zh: true, en: true, ja: false,
     ko: false, fr: false, es: false, de: false,

@@ -872,3 +872,18 @@
 .my-ext-panel[data-status="unpinned"] {
   position: absolute;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   词典样式 — 单词查询时的特殊渲染
+   ═══════════════════════════════════════════════════════════════════════════ */
+.my-ext-dict-body {
+  font-size: 13px;
+  line-height: 1.8;
+}
+
+.my-ext-dict-body .dict-label {
+  color: var(--ext-accent);
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+}

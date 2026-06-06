@@ -221,6 +221,34 @@ function buildSystemPrompt(type) {
       '（对文本中的核心术语或概念给出简洁专业解释：核心定义 1-2 句 + 使用场景或领域背景 1-2 句；用中文作答）'
     );
   }
+  if (type === 'dictionary') {
+    return (
+      '你是一位专业的英语词典编纂者。用户会发送一个英语单词，请按以下格式输出：\n\n' +
+      '### 词典\n' +
+      '**音标**：用国际音标标注（英式和美式）\n' +
+      '**词性**：列出所有主要词性及中文释义\n' +
+      '**释义**：每个词性下列出 1-3 个常用中文释义\n' +
+      '**例句**：给出 2-3 个地道的英文例句及中文翻译（例句应简洁自然，适合学习者理解）\n' +
+      '**常见搭配**：列出 2-4 个常用搭配短语\n' +
+      '**同义词**：列出 2-3 个同义词\n\n' +
+      '使用 Markdown 格式，语言简洁专业。如果单词有多个词性，分别列出。'
+    );
+  }
+  if (type === 'dictionary-complex') {
+    return (
+      '你是一位资深的英语语言学家和词典编纂者。用户会发送一个英语单词，请按以下格式输出：\n\n' +
+      '### 词典\n' +
+      '**音标**：用国际音标标注（英式和美式）\n' +
+      '**词性**：列出所有主要词性\n' +
+      '**词源**：简要说明词源历史（如有意思的词源故事）\n' +
+      '**释义**：每个词性下列出 3-5 个详细释义，包含引申义和专业领域用法\n' +
+      '**例句**：给出 3-5 个涵盖不同场景的英文例句及中文翻译（包括正式、口语、学术等语境）\n' +
+      '**常见搭配**：列出 4-6 个常用搭配短语及例句\n' +
+      '**同义词辨析**：列出 3-4 个同义词，并简要说明它们之间的细微差别\n' +
+      '**词族**：列出相关的派生词（如名词→形容词→副词→动词形式）\n\n' +
+      '使用 Markdown 格式，内容丰富专业。如果单词有多个词性，分别详细列出。'
+    );
+  }
   if (type === 'vision') {
     return '请识别图中文字，并在保持原有段落排版的情况下，将其翻译为流畅的中文。';
   }
@@ -418,7 +446,12 @@ async function fetchLLM(text, type, override) {
     );
   }
 
-  const systemPrompt = buildSystemPrompt(type);
+  const wordDetailEnabled = s.wordDetailEnabled !== false;
+  const isSingleWord = wordDetailEnabled && text.split(/\s+/).length === 1 && /^[a-zA-Z'-]+$/.test(text);
+  const complexity = s.exampleSentenceMode || 'simple';
+  const systemPrompt = isSingleWord
+    ? buildSystemPrompt(complexity === 'complex' ? 'dictionary-complex' : 'dictionary')
+    : buildSystemPrompt(type);
 
   if (cfg.protocol === 'anthropic') {
     return ClaudeAdapter.fetchText(text, systemPrompt, cfg.apiKey, cfg);
@@ -520,7 +553,12 @@ async function runOneModel(row, stored, { text, requestId, tabId, pageTitle }) {
   if (!cfg.model)     return fail(new Error('该模型的 Model ID 无效，请前往设置页检查'), true);
 
   try {
-    const sysPrompt = buildSystemPrompt('combined');
+    const wordDetailEnabled = stored.wordDetailEnabled !== false;
+    const isSingleWord = wordDetailEnabled && text.split(/\s+/).length === 1 && /^[a-zA-Z'-]+$/.test(text);
+    const complexity = stored.exampleSentenceMode || 'simple';
+    const sysPrompt = isSingleWord
+      ? buildSystemPrompt(complexity === 'complex' ? 'dictionary-complex' : 'dictionary')
+      : buildSystemPrompt('combined');
     const adapter   = cfg.protocol === 'anthropic' ? ClaudeAdapter : OpenAIAdapter;
     const result    = await withTimeout(
       adapter.fetchText(text, sysPrompt, cfg.apiKey, cfg),

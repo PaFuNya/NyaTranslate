@@ -946,6 +946,8 @@ class PrefsSection {
     this._toast = toast;
     this._preferredAction = document.getElementById('preferred-action');
     this._btnSave = document.getElementById('btn-save-prefs');
+    this._chkWordDetail = document.getElementById('toggle-word-detail');
+    this._selComplexity = document.getElementById('sentence-complexity');
   }
 
   init() {
@@ -956,15 +958,21 @@ class PrefsSection {
     if (stored.preferredAction) {
       this._preferredAction.value = stored.preferredAction;
     }
+    this._chkWordDetail.checked = stored.wordDetailEnabled !== false;
+    this._selComplexity.value = stored.exampleSentenceMode || 'simple';
   }
 
   _save() {
     this._btnSave.disabled = true;
     this._btnSave.textContent = '保存中喵~';
 
-    chrome.storage.local.set({ preferredAction: this._preferredAction.value }, () => {
+    chrome.storage.local.set({
+      preferredAction: this._preferredAction.value,
+      wordDetailEnabled: this._chkWordDetail.checked,
+      exampleSentenceMode: this._selComplexity.value,
+    }, () => {
       this._btnSave.disabled = false;
-      this._btnSave.textContent = '保存偏好设置喵~';
+      this._btnSave.textContent = '保存偏好设置';
       if (chrome.runtime.lastError) {
         this._toast.show('error', `保存失败喵~${chrome.runtime.lastError.message}`);
         return;

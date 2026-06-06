@@ -165,7 +165,7 @@ class AccordionCard {
     }
 
     if (status === 'result') {
-      this._renderCombinedSections(content);
+      this._renderDictionarySections(content);
     }
   }
 
@@ -224,6 +224,58 @@ class AccordionCard {
 
       this._body.appendChild(section);
     });
+  }
+
+  _renderDictionarySections(content) {
+    const sectionRe = /^###\s+(.+)$/m;
+    const parts = content.split(/(?=^###\s+)/m).filter((s) => s.trim());
+
+    if (parts.length === 0) {
+      this._renderCombinedSections(content);
+      return;
+    }
+
+    parts.forEach((part, idx) => {
+      const match = part.match(sectionRe);
+      const rawTitle = match ? match[1].trim() : '';
+      const bodyText = part.replace(sectionRe, '').trim();
+
+      if (idx > 0) {
+        const divider = document.createElement('div');
+        divider.className = `${NS}-combined-divider`;
+        this._body.appendChild(divider);
+      }
+
+      const section = document.createElement('div');
+      section.className = `${NS}-combined-section`;
+
+      if (rawTitle) {
+        const label = document.createElement('div');
+        label.className = `${NS}-combined-label`;
+        label.textContent = `📖 ${rawTitle}`;
+        section.appendChild(label);
+      }
+
+      const body = document.createElement('div');
+      body.className = `${NS}-result-body ${NS}-dict-body`;
+      body.innerHTML = this._formatDictionaryContent(bodyText);
+      section.appendChild(body);
+
+      const footer = document.createElement('div');
+      footer.className = `${NS}-result-footer`;
+      footer.style.cssText = 'padding:0 0 6px;';
+      footer.appendChild(this._copyBtn(bodyText));
+      section.appendChild(footer);
+
+      this._body.appendChild(section);
+    });
+  }
+
+  _formatDictionaryContent(text) {
+    return text
+      .replace(/\*\*(.+?)\*\*/g, '<strong class="dict-label">$1</strong>')
+      .replace(/\n\n/g, '<br><br>')
+      .replace(/\n/g, '<br>');
   }
 
   _buildLoader() {
