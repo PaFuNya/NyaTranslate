@@ -204,7 +204,8 @@
 }
 
 .my-ext-header-btn:hover {
-  background: rgba(0, 0, 0, 0.07);
+  /* on-surface 混合:暗色模式下为淡色覆盖而非硬编码黑 7% */
+  background: color-mix(in srgb, var(--md-sys-color-on-surface) 8%, transparent);
   color: var(--ext-text-primary);
 }
 
@@ -260,7 +261,7 @@
 }
 
 .my-ext-pin-option:hover {
-  background: rgba(0, 0, 0, 0.05);
+  background: color-mix(in srgb, var(--md-sys-color-on-surface) 8%, transparent);
 }
 
 .my-ext-pin-option--danger {
@@ -327,7 +328,7 @@
 }
 
 .my-ext-accordion-wrap::-webkit-scrollbar-thumb {
-  background: #d1d5db;
+  background: var(--md-sys-color-outline-variant, #d1d5db);
   border-radius: 2px;
 }
 
@@ -358,7 +359,7 @@
 }
 
 .my-ext-accordion-header:hover {
-  background: rgba(0, 0, 0, 0.03);
+  background: color-mix(in srgb, var(--md-sys-color-on-surface) 5%, transparent);
 }
 
 .my-ext-accordion-title {
@@ -537,7 +538,7 @@
 }
 
 .my-ext-tab:hover:not(.my-ext-tab--active) {
-  background: rgba(0, 0, 0, 0.05);
+  background: color-mix(in srgb, var(--md-sys-color-on-surface) 8%, transparent);
   color: var(--ext-text-primary);
 }
 
@@ -640,14 +641,16 @@
 }
 
 .my-ext-btn.my-ext-btn--ghost:hover {
-  background: #f3f4f6;
+  /* 悬停底色走 MD3 语义色:亮色下为淡中性灰,暗色下为淡表面色,
+     不再硬编码 #f3f4f6 导致暗色模式"白底白字看不清" */
+  background: color-mix(in srgb, var(--md-sys-color-on-surface) 8%, transparent);
   color: var(--ext-text-primary);
   transform: translateY(-1px);
   box-shadow: none;
 }
 
 .my-ext-btn.my-ext-btn--ghost:active {
-  background: #e5e7eb;
+  background: color-mix(in srgb, var(--md-sys-color-on-surface) 14%, transparent);
   transform: translateY(0);
 }
 
@@ -677,7 +680,8 @@
   display: block;
   width: 18px;
   height: 18px;
-  border: 2.5px solid #e5e7eb;
+  /* 底色走 outline-variant,暗色模式下可见而非硬编码浅灰 #e5e7eb */
+  border: 2.5px solid var(--md-sys-color-outline-variant, #e5e7eb);
   border-top-color: var(--ext-accent);
   border-radius: 50%;
   flex-shrink: 0;
@@ -780,7 +784,7 @@
 }
 
 .my-ext-result-body::-webkit-scrollbar-thumb {
-  background: #d1d5db;
+  background: var(--md-sys-color-outline-variant, #d1d5db);
   border-radius: 2px;
 }
 

@@ -103,8 +103,9 @@ html.nya-extension-ui body {
   flex-direction: column;
   overflow: hidden;
   padding: 0;
-  box-shadow: var(--md-sys-elevation-level2);
-  animation: fadeIn 220ms var(--ease-standard);
+  /* 侧边栏与卡片同层级:用中性描边而非悬浮阴影 */
+  box-shadow: none;
+  border: 1px solid var(--border);
   position: sticky;
   top: 24px;
   height: calc(100vh - 48px);
@@ -138,21 +139,7 @@ html.nya-extension-ui body {
   justify-content: center;
   color: var(--md-sys-color-on-primary);
   flex-shrink: 0;
-  /* 品牌触点：保留唯一一处主色光晕，低频呼吸 */
-  box-shadow: 0 4px 18px color-mix(in srgb, var(--md-primary) 45%, transparent);
-  animation: pulse 5s var(--ease-standard) infinite;
-}
-
-@keyframes pulse {
-
-  0%,
-  100% {
-    box-shadow: 0 4px 18px color-mix(in srgb, var(--md-primary) 40%, transparent);
-  }
-
-  50% {
-    box-shadow: 0 6px 26px color-mix(in srgb, var(--md-tertiary) 35%, transparent);
-  }
+  /* 品牌触点:静态无动画——装饰性无限动画是 AI 生成界面的典型签名 */
 }
 
 .sidebar-title {
@@ -303,16 +290,18 @@ html.nya-extension-ui body {
 }
 
 .section-header {
-  margin-bottom: 28px;
-  text-align: center;
-  padding: 20px 0;
+  margin-bottom: 20px;
+  /* 左对齐标题:居中大标题是 AI 生成页面的典型布局签名 */
+  text-align: left;
+  padding: 0 0 4px;
 }
 
 .section-title {
-  font-size: 26px;
-  font-weight: 700;
-  color: var(--md-primary);
-  line-height: 1.2;
+  font-size: 22px;
+  font-weight: 600;
+  /* 标题用中性文字色而非主题色:彩色大标题是最典型的 AI 生成界面签名 */
+  color: var(--text-primary);
+  line-height: 1.25;
 }
 
 .section-desc {
@@ -326,18 +315,17 @@ html.nya-extension-ui body {
    ═══════════════════════════════════════════════════════════════ */
 .card {
   background: var(--md-sys-color-surface-container, var(--card-bg));
-  border: none;
-  border-radius: var(--radius-lg);
-  padding: 24px 28px;
-  margin-bottom: 20px;
-  box-shadow: var(--md-sys-elevation-level1);
-  transition: box-shadow var(--transition);
-  backdrop-filter: blur(10px);
-  animation: fadeIn 220ms var(--ease-standard);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 20px 24px;
+  margin-bottom: 16px;
+  box-shadow: none;
+  transition: border-color var(--transition);
+  animation: fadeIn 180ms var(--ease-standard);
 }
 
 .card:hover {
-  box-shadow: var(--md-sys-elevation-level2);
+  border-color: color-mix(in srgb, var(--md-primary) 25%, var(--border));
 }
 
 .card-head {
@@ -533,7 +521,8 @@ html.nya-extension-ui body {
 .section-actions {
   display: flex;
   align-items: center;
-  justify-content: center;
+  /* 保存按钮左对齐,与左对齐标题/卡片节奏一致(居中按钮也是 AI 布局签名) */
+  justify-content: flex-start;
   gap: 12px;
   margin-top: 8px;
 }
@@ -588,9 +577,10 @@ html.nya-extension-ui body {
 }
 
 .about-name {
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--md-primary);
+  font-size: 20px;
+  font-weight: 600;
+  /* 关于页标题同样中性色 */
+  color: var(--text-primary);
 }
 
 .about-version {
@@ -1066,17 +1056,15 @@ html.nya-extension-ui body {
   justify-content: space-between;
   gap: 14px;
   padding: 14px 16px;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   border: 1px solid var(--border);
-  background: var(--md-surface-container);
-  box-shadow: var(--md-sys-elevation-level1);
-  animation: fadeIn 200ms var(--ease-standard);
-  transition: border-color var(--transition), box-shadow var(--transition);
+  background: var(--md-sys-color-surface-container-low);
+  box-shadow: none;
+  transition: border-color var(--transition);
 }
 
 .model-row:hover {
-  border-color: color-mix(in srgb, var(--md-primary) 28%, var(--border));
-  box-shadow: var(--md-sys-elevation-level2);
+  border-color: color-mix(in srgb, var(--md-primary) 35%, var(--border));
 }
 
 .model-row-main {
@@ -1227,16 +1215,19 @@ html.nya-extension-ui body {
   inset: 0;
   z-index: 10000;
   background: var(--md-sys-color-scrim);
-  opacity: 0.4;
+  /* 关闭态必须彻底隐藏:opacity 0.4 的黑色蒙层会让页面整体变暗
+     (API 配置页是唯一常驻 backdrop 的分区,表现为亮度明显低于其他页) */
+  opacity: 0;
+  visibility: hidden;
   pointer-events: none;
-  transition: opacity 200ms var(--ease-emphasized);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
+  transition: opacity 200ms var(--ease-emphasized), visibility 0s 200ms;
 }
 
 .modal-backdrop--visible {
   opacity: 1;
+  visibility: visible;
   pointer-events: auto;
+  transition: opacity 200ms var(--ease-emphasized);
 }
 
 .modal-sheet {
@@ -1249,12 +1240,15 @@ html.nya-extension-ui body {
   padding: 24px;
   pointer-events: none;
   opacity: 0;
-  transition: opacity 200ms var(--ease-standard);
+  visibility: hidden;
+  transition: opacity 200ms var(--ease-standard), visibility 0s 200ms;
 }
 
 .modal-sheet--open {
   opacity: 1;
+  visibility: visible;
   pointer-events: auto;
+  transition: opacity 200ms var(--ease-standard);
 }
 
 .modal-sheet__surface {

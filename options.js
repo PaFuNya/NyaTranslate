@@ -1152,6 +1152,25 @@ class AppearanceSection {
     this._radiusInput?.addEventListener('change', () => this._persist());
 
     this._mq?.addEventListener('change', this._onMedia);
+
+    // 外观跨端同步:popup/划词面板等其它上下文修改外观后,
+    // 已打开的设置页即时更新主题(修复设置页不响应外部外观变更)
+    chrome.storage.onChanged.addListener((changes, area) => {
+      if (area !== 'local' || !changes.appearance) return;
+      const nv = changes.appearance.newValue;
+      if (nv && typeof nv === 'object') {
+        this._appearance = NyaAppearance.mergeAppearance({ appearance: nv });
+        NyaAppearance.applyToExtensionPage(document.documentElement, this._appearance);
+        this._syncModeUi();
+        this._syncPaletteUi();
+        this._syncBgUi();
+        if (this._radiusInput) {
+          this._radiusInput.value = String(this._appearance.cornerRadius);
+          this._radiusInput.setAttribute('aria-valuenow', String(this._appearance.cornerRadius));
+        }
+        if (this._radiusLabel) this._radiusLabel.textContent = `${this._appearance.cornerRadius}px`;
+      }
+    });
   }
 
   load(stored) {
