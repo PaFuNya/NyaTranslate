@@ -4,10 +4,19 @@
  * - 划词 UI：.my-ext-panel / #my-ext-icon 同名 data-*（不污染宿主 :root）
  */
 
-/* ── 默认圆角（由 JS 设置 --app-border-radius 内联或保持下列回退） ── */
+/* ── 设计 Token：离散圆角档 + 字号四档（全局生效，options / popup / content 复用） ── */
 html.nya-extension-ui,
 .my-ext-panel,
 #my-ext-icon {
+  --radius-xs: 6px;
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --text-xs: 11px;
+  --text-sm: 12.5px;
+  --text-md: 14px;
+  --text-lg: 16px;
+  /* 兼容旧式外观滑块（appearance.js 会内联覆盖此值）；组件圆角已全部改用 --radius-* 离散档 */
   --app-border-radius: 16px;
 }
 
@@ -323,15 +332,9 @@ html.nya-extension-ui {
   --text-secondary: var(--md-sys-color-on-surface-variant);
   --text-muted: color-mix(in srgb, var(--md-sys-color-on-surface-variant) 85%, var(--md-sys-color-surface));
   --border: var(--md-sys-color-outline-variant);
-  --card-bg: color-mix(in srgb, var(--md-sys-color-surface-container) 94%, var(--md-sys-color-surface));
-  --radius-sm: calc(var(--app-border-radius) * 0.55);
-  --radius-md: calc(var(--app-border-radius) * 0.85);
-  --radius-lg: var(--app-border-radius);
-  --shadow-card: var(--md-sys-elevation-level1);
-  --shadow-card-hover: var(--md-sys-elevation-level3);
-  --sidebar-bg: color-mix(in srgb, var(--md-sys-color-primary) 20%, #121620);
-  --sidebar-text: color-mix(in srgb, var(--md-sys-color-primary-container) 72%, var(--md-sys-color-surface-bright));
-  --sidebar-active: var(--md-sys-color-on-primary-container);
+  --card-bg: var(--md-sys-color-surface-container);
+  --sidebar-bg: var(--md-sys-color-surface-container);
+  --sidebar-text: var(--md-sys-color-on-surface);
   --md-surface: var(--md-sys-color-surface);
   --md-surface-container: var(--md-sys-color-surface-container);
   --md-outline-variant: var(--md-sys-color-outline-variant);
@@ -343,9 +346,6 @@ html.nya-extension-ui body {
 }
 
 html.nya-extension-ui[data-theme="light"] {
-  --success: #146c2e;
-  --success-bg: #e7f8ec;
-  --success-border: #7bcf8f;
   --warning: #b45309;
   --warning-bg: color-mix(in srgb, #f59e0b 14%, var(--md-sys-color-surface));
   --danger: var(--md-sys-color-error);
@@ -356,9 +356,6 @@ html.nya-extension-ui[data-theme="light"] {
 }
 
 html.nya-extension-ui[data-theme="dark"] {
-  --success: #81c784;
-  --success-bg: color-mix(in srgb, #146c2e 35%, transparent);
-  --success-border: #4caf50;
   --warning: #fbbf24;
   --warning-bg: color-mix(in srgb, #b45309 28%, var(--md-sys-color-surface));
   --danger: var(--md-sys-color-error);
@@ -404,12 +401,12 @@ html.nya-extension-ui[data-background="pure"][data-theme="dark"] body {
   --ext-text-secondary: var(--md-sys-color-on-surface-variant);
   --ext-text-muted: color-mix(in srgb, var(--md-sys-color-on-surface-variant) 80%, var(--md-sys-color-surface));
   --ext-radius-icon: 50%;
-  --ext-radius-panel: var(--app-border-radius);
-  --ext-radius-btn: calc(var(--app-border-radius) * 0.55);
+  --ext-radius-panel: var(--radius-lg);
+  --ext-radius-btn: var(--radius-sm);
   --ext-tab-active-bg: var(--md-sys-color-surface);
   --ext-tab-inactive-bg: var(--md-sys-color-surface-container-low);
-  --ext-shadow-icon: var(--md-sys-elevation-level2), 0 0 0 1px color-mix(in srgb, var(--md-sys-color-primary) 25%, transparent);
-  --ext-shadow-panel: var(--md-sys-elevation-level3), 0 0 0 1px color-mix(in srgb, var(--md-sys-color-outline) 12%, transparent);
+  --ext-shadow-icon: var(--md-sys-elevation-level2);
+  --ext-shadow-panel: var(--md-sys-elevation-level3);
   --ext-transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -443,11 +440,11 @@ html.nya-extension-ui[data-background="pure"][data-theme="dark"] body {
   min-height: 40px;
   padding: 8px 14px;
   border: none;
-  border-radius: calc(var(--app-border-radius) * 1.1);
+  border-radius: var(--radius-md);
   background: var(--md-sys-color-surface-container-high);
   color: var(--md-sys-color-on-surface);
   font: inherit;
-  font-size: 13px;
+  font-size: var(--text-sm);
   cursor: pointer;
   box-shadow: var(--md-sys-elevation-level1);
   transition: background 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s;
@@ -468,6 +465,15 @@ html.nya-extension-ui[data-background="pure"][data-theme="dark"] body {
   transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* 选中值标签:占满触发器主体,长文本省略号截断,不挤压右侧箭头 */
+.nya-ms__label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .nya-ms--open .nya-ms__trigger-icon,
 .nya-ms.active .nya-ms__trigger-icon {
   transform: rotate(180deg);
@@ -483,7 +489,7 @@ html.nya-extension-ui[data-background="pure"][data-theme="dark"] body {
   margin: 0;
   list-style: none;
   list-style-type: none;
-  border-radius: calc(var(--app-border-radius) * 0.95);
+  border-radius: var(--radius-md);
   background: var(--md-sys-color-surface-container-high);
   color: var(--md-sys-color-on-surface);
   box-shadow: var(--md-sys-elevation-level3);
@@ -509,11 +515,11 @@ html.nya-extension-ui[data-background="pure"][data-theme="dark"] body {
   width: 100%;
   padding: 10px 12px;
   border: none;
-  border-radius: calc(var(--app-border-radius) * 0.55);
+  border-radius: var(--radius-sm);
   background: transparent;
   color: inherit;
   font: inherit;
-  font-size: 13px;
+  font-size: var(--text-sm);
   text-align: left;
   cursor: pointer;
   transition: background 0.15s ease;
@@ -539,16 +545,16 @@ html.nya-extension-ui[data-background="pure"][data-theme="dark"] body {
 .my-ext-panel .nya-ms--compact .nya-ms__trigger {
   min-height: 26px;
   padding: 3px 26px 3px 8px;
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 600;
-  border-radius: calc(var(--app-border-radius) * 0.45);
+  border-radius: var(--radius-sm);
   box-shadow: none;
   background: color-mix(in srgb, var(--md-sys-color-primary) 10%, var(--md-sys-color-surface));
   border: 1px solid color-mix(in srgb, var(--md-sys-color-primary) 28%, transparent);
 }
 
 .my-ext-panel .nya-ms--compact .nya-ms__menu {
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 
 .select-wrap .nya-ms {
@@ -570,4 +576,27 @@ html.nya-extension-ui[data-background="pure"][data-theme="dark"] body {
   list-style: none;
   margin: 0;
   padding: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   减少动态偏好:关闭扩展 UI 自身的动画与过渡
+   注意:本文件经 content_scripts 注入宿主页面,选择器必须限定在扩展 UI 根节点
+   (.nya-extension-ui / .my-ext-panel / #my-ext-icon / .nya-ms),
+   严禁使用全局 * 通配规则——那会禁用宿主网站自身的全部动画
+   ═══════════════════════════════════════════════════════════════════════════ */
+@media (prefers-reduced-motion: reduce) {
+  html.nya-extension-ui,
+  html.nya-extension-ui *,
+  html.nya-extension-ui *::before,
+  html.nya-extension-ui *::after,
+  .my-ext-panel,
+  .my-ext-panel *,
+  .my-ext-panel *::before,
+  .my-ext-panel *::after,
+  #my-ext-icon,
+  .nya-ms__menu,
+  .nya-ms__menu * {
+    animation: none !important;
+    transition: none !important;
+  }
 }

@@ -1,55 +1,64 @@
 /**
- * Options Page Script — 划词助手 v3
+ * Options Page Script — 划词助手 v4
  *
  * 模块划分：
  *   NavController        — 侧边栏导航切换
- *   ToastManager         — 全局通知
- *   ApiConfigSection     — 模型列表与每模型鉴权（Modal）
+ *   ToastManager         — 全局通知（SVG 图标 + textContent）
+ *   ApiConfigSection     — 模型列表与每模型鉴权（Modal，含视觉开关与首选标记）
  *   BasicSettingsSection — 基础开关读写
  *   LangMatchSection     — 语言 Chip + 严格模式读写
- *   TriggerRulesSection  — 动态构建 4 大场景卡片，读写触发规则
- *   PrefsSection         — 偏好设置读写
+ *   TriggerRulesSection  — 动态构建 3 大场景卡片，读写触发规则
+ *   PrefsSection         — 偏好设置读写（含翻译历史开关）
  *   OptionsApp           — 根节点，组合并初始化
  */
 
 'use strict';
 
+// ─── 图标常量（Feather 风格：stroke 2 / 16px / currentColor） ─────────────────
+
+const SVG_CHECK = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+const SVG_ALERT = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`;
+const SVG_GLOBE = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>`;
+const SVG_MOUSE_POINTER = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/><path d="M13 13l6 6"/></svg>`;
+const SVG_PIN = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V17z"/></svg>`;
+const SVG_COPY = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
+const SVG_EDIT = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>`;
+const SVG_TRASH = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>`;
+const SVG_STAR = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`;
+const SVG_STAR_FILLED = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`;
+const SVG_EYE = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
+const SVG_EYE_OFF = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`;
+
 // ─── 常量定义 ─────────────────────────────────────────────────────────────────
 
 const LANGUAGES = [
-  { key: 'zh', label: '中文', emoji: '🇨🇳' },
-  { key: 'en', label: '英文', emoji: '🇺🇸' },
-  { key: 'ja', label: '日文', emoji: '🇯🇵' },
-  { key: 'ko', label: '韩文', emoji: '🇰🇷' },
-  { key: 'fr', label: '法文', emoji: '🇫🇷' },
-  { key: 'es', label: '西班牙文', emoji: '🇪🇸' },
-  { key: 'de', label: '德文', emoji: '🇩🇪' },
+  { key: 'zh', label: '中文' },
+  { key: 'en', label: '英文' },
+  { key: 'ja', label: '日文' },
+  { key: 'ko', label: '韩文' },
+  { key: 'fr', label: '法文' },
+  { key: 'es', label: '西班牙文' },
+  { key: 'de', label: '德文' },
 ];
 
 const TRIGGER_SCENARIOS = [
   {
     key: 'normal',
-    label: '普通划词喵~',
-    icon: '🖱️',
-    desc: '在普通页面上划选文字时的触发方式喵~（面板未打开或未固定）喵！',
+    label: '普通划词',
+    icon: SVG_MOUSE_POINTER,
+    desc: '在普通页面上划选文字时的触发方式（面板未打开或未固定）。',
   },
   {
     key: 'pinned',
-    label: '面板钉住后划词喵~',
-    icon: '📌',
-    desc: '查词面板被【📌固定喵~】时，在外部页面继续划选文字的触发方式喵！',
+    label: '面板钉住后划词',
+    icon: SVG_PIN,
+    desc: '查词面板被固定时，在外部页面继续划选文字的触发方式。',
   },
   {
     key: 'insidePanel',
-    label: '面板内部划词喵~',
-    icon: '📋',
-    desc: '在已打开的查词面板内部选中文字时的触发方式喵~（如划选翻译结果中的单词再查词）喵！',
-  },
-  {
-    key: 'standalone',
-    label: '独立窗口划词喵~',
-    icon: '🪟',
-    desc: '在扩展的独立弹出窗口中划词时的触发方式喵~（预留场景）喵！',
+    label: '面板内部划词',
+    icon: SVG_COPY,
+    desc: '在已打开的查词面板内部选中文字时的触发方式（如划选翻译结果中的单词再查词）。',
   },
 ];
 
@@ -80,8 +89,15 @@ class ToastManager {
 
   show(type, message) {
     if (this._timer) clearTimeout(this._timer);
-    const icon = type === 'success' ? '🐱' : '😿';
-    this._el.innerHTML = `<span class="toast-icon">${icon}</span><span>${message}</span>`;
+
+    // 图标与文案分离渲染：图标为静态 SVG 常量，文案走 textContent 防止注入
+    const icon = document.createElement('span');
+    icon.className = 'toast-icon';
+    icon.innerHTML = type === 'success' ? SVG_CHECK : SVG_ALERT;
+    const text = document.createElement('span');
+    text.textContent = message;
+
+    this._el.replaceChildren(icon, text);
     this._el.className = `toast toast--${type}`;
     requestAnimationFrame(() => {
       requestAnimationFrame(() => this._el.classList.add('toast--show'));
@@ -118,7 +134,7 @@ class NavController {
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  ApiConfigSection — 每模型独立鉴权（v4）
-//  models: [{ id, modelId, displayName, protocol, baseUrl, apiKey, enabled }]
+//  models: [{ id, modelId, displayName, protocol, baseUrl, apiKey, enabled, visionEnabled, preferred }]
 // ═══════════════════════════════════════════════════════════════════════════
 
 const DEFAULT_OPENAI_BASE_URL    = 'https://api.openai.com/v1';
@@ -142,6 +158,7 @@ function newModelRowId() {
 
 /**
  * 与 background.js 同源：解析 models 并兼容旧版全局 Key / 旧行结构。
+ * 新字段：visionEnabled（视觉能力开关）、preferred（首选标记，全局唯一）。
  * @param {Record<string, unknown>} stored
  */
 function ensureModelsArray(stored) {
@@ -153,7 +170,7 @@ function ensureModelsArray(stored) {
   };
 
   const raw = Array.isArray(stored.models) ? stored.models : [];
-  /** @type {{ id: string, modelId: string, displayName: string, protocol: 'openai'|'anthropic', baseUrl: string, apiKey: string, enabled: boolean }[]} */
+  /** @type {{ id: string, modelId: string, displayName: string, protocol: 'openai'|'anthropic', baseUrl: string, apiKey: string, enabled: boolean, visionEnabled: boolean, preferred: boolean }[]} */
   const out = [];
   const seenIds = new Set();
 
@@ -169,6 +186,8 @@ function ensureModelsArray(stored) {
       baseUrl:     String(row.baseUrl || '').trim().replace(/\/$/, ''),
       apiKey:      String(row.apiKey || ''),
       enabled:     row.enabled !== false,
+      visionEnabled: row.visionEnabled === true,
+      preferred:     row.preferred === true,
     });
   };
 
@@ -193,8 +212,11 @@ function ensureModelsArray(stored) {
     const oldApiName = String(m.id || '').trim();
     if (!oldApiName) continue;
     const proto = m.provider === 'anthropic' ? 'anthropic' : 'openai';
+    // 旧格式行保留原始 id(与 background.js 同源):
+    // 若生成随机 UUID,打开设置页会改写 storage 中的行 id,
+    // 与 content 侧已打开面板的卡片 key 失配,导致在途批次结果被丢弃
     pushRow({
-      id:          newModelRowId(),
+      id:          oldApiName,
       modelId:     oldApiName,
       displayName: oldApiName,
       protocol:    proto,
@@ -208,7 +230,7 @@ function ensureModelsArray(stored) {
   const legacyProto = stored.textModelProtocol === 'anthropic' ? 'anthropic' : 'openai';
   if (legacyText && !out.some((r) => r.modelId === legacyText)) {
     pushRow({
-      id:          newModelRowId(),
+      id:          legacyText,
       modelId:     legacyText,
       displayName: legacyText,
       protocol:    legacyProto,
@@ -228,6 +250,8 @@ function ensureModelsArray(stored) {
         baseUrl: DEFAULT_OPENAI_BASE_URL,
         apiKey: '',
         enabled: true,
+        visionEnabled: false,
+        preferred: false,
       },
       {
         id: newModelRowId(),
@@ -237,6 +261,8 @@ function ensureModelsArray(stored) {
         baseUrl: DEFAULT_ANTHROPIC_BASE_URL,
         apiKey: '',
         enabled: true,
+        visionEnabled: false,
+        preferred: false,
       },
       {
         id: newModelRowId(),
@@ -246,6 +272,8 @@ function ensureModelsArray(stored) {
         baseUrl: 'https://api.deepseek.com/v1',
         apiKey: '',
         enabled: true,
+        visionEnabled: false,
+        preferred: false,
       },
     ];
   }
@@ -291,8 +319,9 @@ class ApiConfigSection {
     this._inpModelId     = document.getElementById('modal-model-id');
     this._inpBaseUrl     = document.getElementById('modal-base-url');
     this._inpApiKey      = document.getElementById('modal-api-key');
+    this._chkVision      = document.getElementById('modal-vision-enabled');
 
-    /** @type {{ id: string, modelId: string, displayName: string, protocol: 'openai'|'anthropic', baseUrl: string, apiKey: string, enabled: boolean }[]} */
+    /** @type {{ id: string, modelId: string, displayName: string, protocol: 'openai'|'anthropic', baseUrl: string, apiKey: string, enabled: boolean, visionEnabled: boolean, preferred: boolean }[]} */
     this._models = [];
     /** @type {string | null} */
     this._editingId = null;
@@ -405,6 +434,7 @@ class ApiConfigSection {
       this._inpBaseUrl.value = '';
       this._protocolSelect.value = 'openai';
       this._protocolSelect.disabled = false;
+      if (this._chkVision) this._chkVision.checked = false;
       this._onPresetChange();
     } else {
       const m = this._models.find((x) => x.id === editId);
@@ -417,6 +447,7 @@ class ApiConfigSection {
       this._inpBaseUrl.value = m.baseUrl || '';
       this._protocolSelect.value = m.protocol === 'anthropic' ? 'anthropic' : 'openai';
       this._inpApiKey.placeholder = m.apiKey ? '已保存 · 留空则不修改' : '填写 API Key';
+      if (this._chkVision) this._chkVision.checked = m.visionEnabled === true;
       if (preset === 'custom') {
         this._protocolSelect.disabled = false;
       } else {
@@ -449,12 +480,12 @@ class ApiConfigSection {
     const apiKeyInp = this._inpApiKey.value.trim();
 
     if (!displayName) {
-      this._toast.show('error', '请填写显示名称喵~');
+      this._toast.show('error', '请填写显示名称');
       this._inpDisplayName.focus();
       return;
     }
     if (!modelId) {
-      this._toast.show('error', '请填写 Model ID 喵~');
+      this._toast.show('error', '请填写 Model ID');
       this._inpModelId.focus();
       return;
     }
@@ -491,6 +522,8 @@ class ApiConfigSection {
       baseUrl,
       apiKey,
       enabled: true,
+      visionEnabled: this._chkVision ? this._chkVision.checked : false,
+      preferred: false,
     };
 
     if (!this._editingId) {
@@ -499,6 +532,7 @@ class ApiConfigSection {
       const idx = this._models.findIndex((x) => x.id === id);
       if (idx >= 0) {
         row.enabled = this._models[idx].enabled;
+        row.preferred = this._models[idx].preferred === true;
         this._models[idx] = row;
       }
     }
@@ -513,7 +547,7 @@ class ApiConfigSection {
   _persistModels(cb) {
     chrome.storage.local.set({ models: this._models }, () => {
       if (chrome.runtime.lastError) {
-        this._toast.show('error', `保存失败喵~${chrome.runtime.lastError.message}`);
+        this._toast.show('error', `保存失败：${chrome.runtime.lastError.message}`);
       } else if (cb) cb();
     });
   }
@@ -530,14 +564,25 @@ class ApiConfigSection {
     }
   }
 
+  /** 生成行内徽标（视觉 / 首选），icon 为静态 SVG 常量 */
+  _makeBadge(extraClass, label, iconSvg) {
+    const badge = document.createElement('span');
+    badge.className = `model-badge ${extraClass}`.trim();
+    const icon = document.createElement('span');
+    icon.className = 'model-badge-icon';
+    icon.innerHTML = iconSvg;
+    badge.appendChild(icon);
+    badge.appendChild(document.createTextNode(label));
+    return badge;
+  }
+
   _renderModelList() {
     if (!this._modelsListEl) return;
     this._modelsListEl.innerHTML = '';
 
-    this._models.forEach((m, index) => {
+    this._models.forEach((m) => {
       const row = document.createElement('div');
       row.className = 'model-row';
-      row.style.setProperty('--stagger', String(index));
       row.setAttribute('role', 'listitem');
 
       const main = document.createElement('div');
@@ -546,6 +591,12 @@ class ApiConfigSection {
       const title = document.createElement('div');
       title.className = 'model-row-title';
       title.textContent = m.displayName || m.modelId;
+      if (m.preferred) {
+        title.appendChild(this._makeBadge('model-badge--preferred', '首选', SVG_STAR_FILLED));
+      }
+      if (m.visionEnabled) {
+        title.appendChild(this._makeBadge('', '视觉', SVG_EYE));
+      }
 
       const sub = document.createElement('div');
       sub.className = 'model-row-sub';
@@ -557,12 +608,32 @@ class ApiConfigSection {
       const actions = document.createElement('div');
       actions.className = 'model-row-actions';
 
+      // 首选标记（全局唯一）
+      const star = document.createElement('button');
+      star.type = 'button';
+      star.className = `model-row-icon-btn${m.preferred ? ' model-row-icon-btn--on' : ''}`;
+      star.title = m.preferred ? '取消首选' : '设为首选模型';
+      star.setAttribute('aria-label', star.title);
+      star.setAttribute('aria-pressed', m.preferred ? 'true' : 'false');
+      star.innerHTML = m.preferred ? SVG_STAR_FILLED : SVG_STAR;
+      star.addEventListener('click', () => this._togglePreferred(m.id));
+
+      // 视觉能力开关
+      const vision = document.createElement('button');
+      vision.type = 'button';
+      vision.className = `model-row-icon-btn${m.visionEnabled ? ' model-row-icon-btn--on' : ''}`;
+      vision.title = m.visionEnabled ? '关闭视觉能力' : '开启视觉能力';
+      vision.setAttribute('aria-label', vision.title);
+      vision.setAttribute('aria-pressed', m.visionEnabled ? 'true' : 'false');
+      vision.innerHTML = m.visionEnabled ? SVG_EYE : SVG_EYE_OFF;
+      vision.addEventListener('click', () => this._toggleVision(m.id));
+
       const edit = document.createElement('button');
       edit.type = 'button';
       edit.className = 'model-row-icon-btn';
       edit.title = '编辑';
       edit.setAttribute('aria-label', '编辑');
-      edit.textContent = '✏️';
+      edit.innerHTML = SVG_EDIT;
       edit.addEventListener('click', () => this._openModal(m.id));
 
       const del = document.createElement('button');
@@ -570,7 +641,7 @@ class ApiConfigSection {
       del.className = 'model-row-icon-btn model-row-icon-btn--danger';
       del.title = '删除';
       del.setAttribute('aria-label', '删除');
-      del.textContent = '🗑️';
+      del.innerHTML = SVG_TRASH;
       del.addEventListener('click', () => this._deleteModel(m.id));
 
       const label = document.createElement('label');
@@ -587,6 +658,8 @@ class ApiConfigSection {
       label.appendChild(chk);
       label.appendChild(slider);
 
+      actions.appendChild(star);
+      actions.appendChild(vision);
       actions.appendChild(edit);
       actions.appendChild(del);
       actions.appendChild(label);
@@ -595,6 +668,30 @@ class ApiConfigSection {
       row.appendChild(actions);
       this._modelsListEl.appendChild(row);
     });
+  }
+
+  /** 设置/取消首选：设为首选时清除其他行的首选标记 */
+  _togglePreferred(id) {
+    const target = this._models.find((x) => x.id === id);
+    if (!target) return;
+    const next = !target.preferred;
+    this._models.forEach((m) => {
+      m.preferred = false;
+    });
+    target.preferred = next;
+    this._renderModelList();
+    this._persistModels(() => {
+      this._toast.show('success', next ? '已设为首选模型 ✓' : '已取消首选 ✓');
+    });
+  }
+
+  /** 切换视觉能力开关 */
+  _toggleVision(id) {
+    const target = this._models.find((x) => x.id === id);
+    if (!target) return;
+    target.visionEnabled = !target.visionEnabled;
+    this._renderModelList();
+    this._persistModels();
   }
 
   _deleteModel(id) {
@@ -607,24 +704,24 @@ class ApiConfigSection {
   _save() {
     const enabled = this._models.filter((m) => m.enabled);
     if (enabled.length === 0) {
-      this._toast.show('error', '请至少启用一个模型喵~');
+      this._toast.show('error', '请至少启用一个模型');
       return;
     }
 
     this._btnSave.disabled = true;
-    this._btnSave.textContent = '保存中喵~';
+    this._btnSave.textContent = '保存中…';
 
     chrome.storage.local.set({ models: this._models }, () => {
       this._btnSave.disabled = false;
-      this._btnSave.textContent = '保存 API 配置喵~';
+      this._btnSave.textContent = '保存 API 配置';
 
       if (chrome.runtime.lastError) {
-        this._toast.show('error', `保存失败喵~${chrome.runtime.lastError.message}`);
+        this._toast.show('error', `保存失败：${chrome.runtime.lastError.message}`);
         return;
       }
 
       chrome.storage.local.remove(LEGACY_KEYS_TO_REMOVE, () => {});
-      this._toast.show('success', 'API 配置已保存喵~立即生效 ✓');
+      this._toast.show('success', '已保存 ✓');
     });
   }
 }
@@ -652,19 +749,19 @@ class BasicSettingsSection {
 
   _save() {
     this._btnSave.disabled = true;
-    this._btnSave.textContent = '保存中喵~';
+    this._btnSave.textContent = '保存中…';
 
     chrome.storage.local.set({
       disableInInputs: this._chkInputs.checked,
       touchMode: this._chkTouch.checked,
     }, () => {
       this._btnSave.disabled = false;
-      this._btnSave.textContent = '保存基础设置喵~';
+      this._btnSave.textContent = '保存基础设置';
       if (chrome.runtime.lastError) {
-        this._toast.show('error', `保存失败喵~${chrome.runtime.lastError.message}`);
+        this._toast.show('error', `保存失败：${chrome.runtime.lastError.message}`);
         return;
       }
-      this._toast.show('success', '基础设置已保存喵~✓');
+      this._toast.show('success', '已保存 ✓');
     });
   }
 }
@@ -698,7 +795,7 @@ class LangMatchSection {
   }
 
   _buildChips() {
-    LANGUAGES.forEach(({ key, label, emoji }) => {
+    LANGUAGES.forEach(({ key, label }) => {
       const chip = document.createElement('label');
       chip.className = 'lang-chip';
       chip.htmlFor = `lang-${key}`;
@@ -708,10 +805,16 @@ class LangMatchSection {
       chk.id = `lang-${key}`;
       chk.value = key;
 
+      // 统一 Feather 风格语言图标（静态 SVG 常量）
+      const icon = document.createElement('span');
+      icon.className = 'lang-chip-icon';
+      icon.innerHTML = SVG_GLOBE;
+
       const span = document.createElement('span');
-      span.textContent = `${emoji} ${label}`;
+      span.textContent = label;
 
       chip.appendChild(chk);
+      chip.appendChild(icon);
       chip.appendChild(span);
       this._container.appendChild(chip);
       this._checkboxes[key] = chk;
@@ -729,19 +832,19 @@ class LangMatchSection {
       languages[key] = chk.checked;
     }
     this._btnSave.disabled = true;
-    this._btnSave.textContent = '保存中喵~';
+    this._btnSave.textContent = '保存中…';
 
     chrome.storage.local.set({
       languages,
       strictLanguageMatch: this._chkStrict.checked,
     }, () => {
       this._btnSave.disabled = false;
-      this._btnSave.textContent = '保存语言设置喵~';
+      this._btnSave.textContent = '保存语言设置';
       if (chrome.runtime.lastError) {
-        this._toast.show('error', `保存失败喵~${chrome.runtime.lastError.message}`);
+        this._toast.show('error', `保存失败：${chrome.runtime.lastError.message}`);
         return;
       }
-      this._toast.show('success', '语言设置已保存喵~✓');
+      this._toast.show('success', '已保存 ✓');
     });
   }
 }
@@ -811,20 +914,20 @@ class TriggerRulesSection {
     const opts = document.createElement('div');
     opts.className = 'trigger-options';
 
-    const showIconChk = this._makeCheckRow(opts, `${scenarioKey}-showIcon`, '显示图标喵~', '划词后在光标附近出现小气泡图标喵~悬停或点击后展开面板喵！');
-    const directSearchChk = this._makeCheckRow(opts, `${scenarioKey}-directSearch`, '直接搜索喵~', '划词后直接弹出大面板喵~同时向两个模型发起请求喵！无需点击图标喵~');
-    const dblclickSearchChk = this._makeCheckRow(opts, `${scenarioKey}-dblclickSearch`, '双击搜索喵~', '仅双击选词时才直接弹出面板喵~（优先级高于"直接搜索"）喵！');
-    const hoverSelectChk = this._makeCheckRow(opts, `${scenarioKey}-hoverSelect`, '鼠标悬浮取词喵~', '无需点击喵~鼠标悬停约0.6秒后自动选取光标周边单词并显示图标喵！');
+    const showIconChk = this._makeCheckRow(opts, `${scenarioKey}-showIcon`, '显示图标', '划词后在光标附近出现小气泡图标，悬停或点击后展开面板。');
+    const directSearchChk = this._makeCheckRow(opts, `${scenarioKey}-directSearch`, '直接搜索', '划词后直接弹出面板，同时向已启用模型发起请求，无需点击图标。');
+    const dblclickSearchChk = this._makeCheckRow(opts, `${scenarioKey}-dblclickSearch`, '双击搜索', '仅双击选词时才直接弹出面板（优先级高于「直接搜索」）。');
+    const hoverSelectChk = this._makeCheckRow(opts, `${scenarioKey}-hoverSelect`, '鼠标悬浮取词', '无需点击，鼠标悬停约 0.6 秒后自动选取光标周边单词并显示图标。');
 
     // 组合键
     const modRow = document.createElement('div');
     modRow.className = 'trigger-option-row';
     modRow.innerHTML = `
       <div class="trigger-option-label">
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h0M10 10h0M14 10h0M18 10h0M8 14h8"/></svg>
-        组合键触发喵~
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h0M10 10h0M14 10h0M18 10h0M8 14h8"/></svg>
+        组合键触发
       </div>
-      <div class="trigger-option-desc">按住以下任一修饰键划词时，强制触发直接搜索喵~（优先级高于基础模式）喵！</div>
+      <div class="trigger-option-desc">按住以下任一修饰键划词时，强制触发直接搜索（优先级高于基础模式）。</div>
     `;
     const modKeys = document.createElement('div');
     modKeys.className = 'modifier-keys';
@@ -923,16 +1026,16 @@ class TriggerRulesSection {
     }
 
     this._btnSave.disabled = true;
-    this._btnSave.textContent = '保存中喵~';
+    this._btnSave.textContent = '保存中…';
 
     chrome.storage.local.set({ triggerRules }, () => {
       this._btnSave.disabled = false;
-      this._btnSave.textContent = '保存触发规则喵~';
+      this._btnSave.textContent = '保存触发规则';
       if (chrome.runtime.lastError) {
-        this._toast.show('error', `保存失败喵~${chrome.runtime.lastError.message}`);
+        this._toast.show('error', `保存失败：${chrome.runtime.lastError.message}`);
         return;
       }
-      this._toast.show('success', '触发规则已保存喵~刷新页面后生效✓');
+      this._toast.show('success', '已保存 ✓');
     });
   }
 }
@@ -948,6 +1051,7 @@ class PrefsSection {
     this._btnSave = document.getElementById('btn-save-prefs');
     this._chkWordDetail = document.getElementById('toggle-word-detail');
     this._selComplexity = document.getElementById('sentence-complexity');
+    this._chkHistory = document.getElementById('toggle-history-enabled');
   }
 
   init() {
@@ -960,24 +1064,26 @@ class PrefsSection {
     }
     this._chkWordDetail.checked = stored.wordDetailEnabled !== false;
     this._selComplexity.value = stored.exampleSentenceMode || 'simple';
+    this._chkHistory.checked = stored.historyEnabled !== false; // 默认开启
   }
 
   _save() {
     this._btnSave.disabled = true;
-    this._btnSave.textContent = '保存中喵~';
+    this._btnSave.textContent = '保存中…';
 
     chrome.storage.local.set({
       preferredAction: this._preferredAction.value,
       wordDetailEnabled: this._chkWordDetail.checked,
       exampleSentenceMode: this._selComplexity.value,
+      historyEnabled: this._chkHistory.checked,
     }, () => {
       this._btnSave.disabled = false;
       this._btnSave.textContent = '保存偏好设置';
       if (chrome.runtime.lastError) {
-        this._toast.show('error', `保存失败喵~${chrome.runtime.lastError.message}`);
+        this._toast.show('error', `保存失败：${chrome.runtime.lastError.message}`);
         return;
       }
-      this._toast.show('success', '偏好设置已保存喵~✓');
+      this._toast.show('success', '已保存 ✓');
     });
   }
 }
@@ -1116,6 +1222,13 @@ class OptionsApp {
   init() {
     // 先让各模块完成 DOM 构建（TriggerRulesSection 动态生成卡片）
     this._modules.forEach((m) => m.init?.());
+
+    // 版本号统一从 manifest 注入（侧栏与关于页单一数据源）
+    const manifestVersion = chrome.runtime?.getManifest?.().version || '';
+    const sidebarVersion = document.getElementById('sidebar-version');
+    const aboutVersion = document.getElementById('about-version');
+    if (sidebarVersion && manifestVersion) sidebarVersion.textContent = `v${manifestVersion}`;
+    if (aboutVersion && manifestVersion) aboutVersion.textContent = `Version ${manifestVersion}`;
 
     // 从 storage 全量读取，回填所有表单
     chrome.storage.local.get(null, (stored) => {

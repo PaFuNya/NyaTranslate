@@ -12,13 +12,13 @@
 
 /* 色彩与兼容别名见 theme.css（html.nya-extension-ui） */
 html.nya-extension-ui {
-  --font: 'Google Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+  --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
     'Microsoft YaHei', 'Noto Sans SC', sans-serif;
   --font-mono: 'SF Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
   --ease-emphasized: cubic-bezier(0.2, 0, 0, 1);
   --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
-  --transition: 280ms var(--ease-standard);
-  --motion-medium: 420ms var(--ease-emphasized);
+  --transition: 200ms var(--ease-standard);
+  --motion-medium: 220ms var(--ease-emphasized);
 }
 
 html.nya-extension-ui,
@@ -26,12 +26,12 @@ html.nya-extension-ui body {
   height: 100%;
   font-family: var(--font);
   color: var(--text-primary);
-  font-size: 14px;
+  font-size: var(--text-md);
   line-height: 1.6;
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   全局 Toast 通知 (猫娘弹跳动画)
+   全局 Toast 通知
    ═══════════════════════════════════════════════════════════════ */
 .toast {
   position: fixed;
@@ -44,14 +44,14 @@ html.nya-extension-ui body {
   align-items: center;
   gap: 10px;
   padding: 12px 24px;
-  border-radius: 100px;
-  font-size: 14px;
+  border-radius: var(--radius-lg);
+  font-size: var(--text-md);
   font-weight: 500;
   white-space: nowrap;
   pointer-events: none;
   opacity: 0;
-  transition: transform 420ms var(--ease-emphasized), opacity 320ms var(--ease-standard);
-  box-shadow: 0 8px 32px color-mix(in srgb, var(--md-primary) 22%, transparent);
+  transition: transform 220ms var(--ease-emphasized), opacity 200ms var(--ease-standard);
+  box-shadow: var(--md-sys-elevation-level3);
   backdrop-filter: blur(10px);
 }
 
@@ -69,25 +69,14 @@ html.nya-extension-ui body {
   background: var(--error-bg);
   color: var(--error);
   border: 1px solid var(--error-border);
-  box-shadow: 0 8px 32px rgba(239, 68, 68, 0.2);
+  box-shadow: var(--md-sys-elevation-level3);
 }
 
 .toast-icon {
-  font-size: 16px;
+  display: inline-flex;
+  align-items: center;
   flex-shrink: 0;
-  animation: bounce 0.6s ease;
-}
-
-@keyframes bounce {
-
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-
-  50% {
-    transform: translateY(-6px);
-  }
+  line-height: 0;
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -114,22 +103,20 @@ html.nya-extension-ui body {
   flex-direction: column;
   overflow: hidden;
   padding: 0;
-  box-shadow: 0 8px 32px rgba(30, 58, 95, 0.3);
-  animation: slideInLeft 0.5s ease;
+  box-shadow: var(--md-sys-elevation-level2);
+  animation: fadeIn 220ms var(--ease-standard);
   position: sticky;
   top: 24px;
   height: calc(100vh - 48px);
 }
 
-@keyframes slideInLeft {
+@keyframes fadeIn {
   from {
     opacity: 0;
-    transform: translateX(-30px);
   }
 
   to {
     opacity: 1;
-    transform: translateX(0);
   }
 }
 
@@ -144,15 +131,16 @@ html.nya-extension-ui body {
 .sidebar-logo {
   width: 40px;
   height: 40px;
-  border-radius: 14px;
+  border-radius: var(--radius-sm);
   background: var(--md-primary);
   display: flex;
   align-items: center;
   justify-content: center;
   color: var(--md-sys-color-on-primary);
   flex-shrink: 0;
+  /* 品牌触点：保留唯一一处主色光晕，低频呼吸 */
   box-shadow: 0 4px 18px color-mix(in srgb, var(--md-primary) 45%, transparent);
-  animation: pulse 2.4s var(--ease-standard) infinite;
+  animation: pulse 5s var(--ease-standard) infinite;
 }
 
 @keyframes pulse {
@@ -168,14 +156,14 @@ html.nya-extension-ui body {
 }
 
 .sidebar-title {
-  font-size: 15px;
+  font-size: var(--text-lg);
   font-weight: 600;
   color: var(--sidebar-text);
   line-height: 1.2;
 }
 
 .sidebar-version {
-  font-size: 11px;
+  font-size: var(--text-xs);
   color: color-mix(in srgb, var(--sidebar-text) 45%, transparent);
   margin-top: 2px;
   font-family: var(--font-mono);
@@ -198,12 +186,12 @@ html.nya-extension-ui body {
   gap: 10px;
   padding: 10px 14px;
   border-radius: var(--radius-md);
-  font-size: 13.5px;
+  font-size: var(--text-md);
   font-weight: 500;
   color: var(--sidebar-text);
   cursor: pointer;
   user-select: none;
-  transition: all var(--transition);
+  transition: background var(--transition), color var(--transition);
   box-sizing: border-box;
   position: relative;
   overflow: hidden;
@@ -225,7 +213,6 @@ html.nya-extension-ui body {
 .nav-item:hover:not(.nav-item--active) {
   background: color-mix(in srgb, var(--md-sys-color-surface-bright) 8%, transparent);
   color: color-mix(in srgb, var(--sidebar-text) 92%, var(--md-sys-color-surface-bright));
-  transform: translateX(4px);
 }
 
 .nav-item--active {
@@ -247,11 +234,7 @@ html.nya-extension-ui body {
   flex-shrink: 0;
   color: currentColor;
   opacity: 0.7;
-  transition: transform var(--transition);
-}
-
-.nav-item:hover .nav-icon {
-  transform: scale(1.1);
+  transition: color var(--transition);
 }
 
 .nav-item--active .nav-icon {
@@ -268,10 +251,10 @@ html.nya-extension-ui body {
 }
 
 .sidebar-link {
-  font-size: 11.5px;
+  font-size: var(--text-xs);
   color: color-mix(in srgb, var(--sidebar-text) 45%, transparent);
   text-decoration: none;
-  transition: all var(--transition);
+  transition: color var(--transition), background var(--transition);
   padding: 4px 8px;
   border-radius: var(--radius-sm);
 }
@@ -302,7 +285,7 @@ html.nya-extension-ui body {
 
 .main-content::-webkit-scrollbar-thumb {
   background: var(--md-primary);
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
 }
 
 .main-content::-webkit-scrollbar-thumb:hover {
@@ -312,23 +295,11 @@ html.nya-extension-ui body {
 /* ── Section ── */
 .section {
   display: none;
-  animation: fadeSlideIn var(--motion-medium) var(--ease-emphasized);
+  animation: fadeIn var(--motion-medium) var(--ease-standard);
 }
 
 .section--active {
   display: block;
-}
-
-@keyframes fadeSlideIn {
-  from {
-    opacity: 0;
-    transform: translateY(16px) scale(0.985);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
 }
 
 .section-header {
@@ -345,13 +316,13 @@ html.nya-extension-ui body {
 }
 
 .section-desc {
-  font-size: 14px;
+  font-size: var(--text-md);
   color: var(--text-secondary);
   margin-top: 8px;
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   卡片 (毛玻璃效果)
+   卡片
    ═══════════════════════════════════════════════════════════════ */
 .card {
   background: var(--md-sys-color-surface-container, var(--card-bg));
@@ -359,27 +330,14 @@ html.nya-extension-ui body {
   border-radius: var(--radius-lg);
   padding: 24px 28px;
   margin-bottom: 20px;
-  box-shadow: var(--shadow-card);
-  transition: all var(--transition);
+  box-shadow: var(--md-sys-elevation-level1);
+  transition: box-shadow var(--transition);
   backdrop-filter: blur(10px);
-  animation: cardFadeIn 0.5s ease;
-}
-
-@keyframes cardFadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  animation: fadeIn 220ms var(--ease-standard);
 }
 
 .card:hover {
-  box-shadow: var(--shadow-card-hover);
-  transform: translateY(-2px);
+  box-shadow: var(--md-sys-elevation-level2);
 }
 
 .card-head {
@@ -393,34 +351,18 @@ html.nya-extension-ui body {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-size: 14px;
+  font-size: var(--text-md);
   font-weight: 600;
   color: var(--text-secondary);
 }
 
-.card-brand--deepseek {
-  color: var(--md-primary);
-}
-
-.card-brand--qwen {
-  color: #f97316;
-}
-
-.card-brand--gpt {
-  color: #10a37f;
-}
-
-.card-brand--claude {
-  color: #d97706;
-}
-
 .card-badge {
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 600;
   color: var(--accent);
   background: var(--accent-soft);
   padding: 3px 10px;
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
   font-family: var(--font-mono);
   border: 1px solid color-mix(in srgb, var(--md-primary) 22%, transparent);
 }
@@ -440,20 +382,20 @@ html.nya-extension-ui body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 14px;
+  font-size: var(--text-md);
   font-weight: 500;
   color: var(--text-primary);
   margin-bottom: 8px;
 }
 
 .field-link {
-  font-size: 12px;
+  font-size: var(--text-sm);
   font-weight: 400;
   color: var(--accent);
   text-decoration: none;
-  transition: all var(--transition);
+  transition: color var(--transition), background var(--transition);
   padding: 2px 6px;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
 }
 
 .field-link:hover {
@@ -462,14 +404,14 @@ html.nya-extension-ui body {
 }
 
 .field-desc {
-  font-size: 13px;
+  font-size: var(--text-sm);
   color: var(--text-muted);
   margin-bottom: 10px;
   line-height: 1.5;
 }
 
 .field-hint {
-  font-size: 11.5px;
+  font-size: var(--text-xs);
   font-weight: 400;
   color: var(--text-muted);
   margin-left: 6px;
@@ -507,19 +449,18 @@ html.nya-extension-ui body {
   padding: 11px 44px 11px 14px;
   border: 2px solid var(--border);
   border-radius: var(--radius-md);
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-family: var(--font-mono);
   color: var(--text-primary);
   background: var(--md-sys-color-surface-container-low);
   outline: none;
-  transition: all var(--transition);
+  transition: border-color var(--transition), box-shadow var(--transition), background var(--transition);
 }
 
 .field-input:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 4px var(--accent-glow);
+  box-shadow: 0 0 0 2px var(--md-sys-color-primary);
   background: var(--md-sys-color-surface-bright);
-  transform: scale(1.01);
 }
 
 .field-input::placeholder {
@@ -538,43 +479,13 @@ html.nya-extension-ui body {
   cursor: pointer;
   color: var(--text-muted);
   padding: 6px;
-  border-radius: 6px;
-  transition: all var(--transition);
+  border-radius: var(--radius-xs);
+  transition: color var(--transition), background var(--transition);
 }
 
 .eye-btn:hover {
   color: var(--accent);
   background: var(--accent-soft);
-}
-
-/* Key 状态标识（已配置 / 未配置） */
-.key-status {
-  font-size: 12px;
-  margin-top: 8px;
-  display: none;
-  align-items: center;
-  gap: 6px;
-  animation: fadeIn 0.3s ease;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-
-  to {
-    opacity: 1;
-  }
-}
-
-.key-status.configured {
-  display: flex;
-  color: var(--success);
-}
-
-.key-status.missing {
-  display: flex;
-  color: var(--text-muted);
 }
 
 /* ── 下拉选择框 ── */
@@ -589,7 +500,7 @@ html.nya-extension-ui body {
   padding: 11px 38px 11px 14px;
   border: 2px solid var(--border);
   border-radius: var(--radius-md);
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-family: var(--font);
   color: var(--text-primary);
   background: var(--md-sys-color-surface-container-low);
@@ -597,12 +508,12 @@ html.nya-extension-ui body {
   cursor: pointer;
   appearance: none;
   -webkit-appearance: none;
-  transition: all var(--transition);
+  transition: border-color var(--transition), box-shadow var(--transition), background var(--transition);
 }
 
 .field-select:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 4px var(--accent-glow);
+  box-shadow: 0 0 0 2px var(--md-sys-color-primary);
   background: var(--md-sys-color-surface-bright);
 }
 
@@ -617,7 +528,7 @@ html.nya-extension-ui body {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   保存按钮 (渐变动画)
+   保存按钮
    ═══════════════════════════════════════════════════════════════ */
 .section-actions {
   display: flex;
@@ -633,46 +544,25 @@ html.nya-extension-ui body {
   color: var(--md-on-primary);
   border: none;
   border-radius: var(--radius-md);
-  font-size: 14px;
+  font-size: var(--text-md);
   font-weight: 600;
   font-family: var(--font);
   cursor: pointer;
-  transition: box-shadow var(--transition), transform var(--transition), filter var(--transition);
-  box-shadow: 0 4px 18px color-mix(in srgb, var(--md-primary) 32%, transparent);
-  position: relative;
-  overflow: hidden;
-}
-
-.btn-primary::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: var(--accent-hover);
-  transition: left 0.5s ease;
-}
-
-.btn-primary:hover::before {
-  left: 100%;
+  transition: box-shadow var(--transition), background var(--transition);
+  box-shadow: var(--md-sys-elevation-level1);
 }
 
 .btn-primary:hover {
-  box-shadow: 0 8px 28px color-mix(in srgb, var(--md-primary) 38%, transparent);
-  transform: translateY(-2px);
-  filter: brightness(1.03);
+  box-shadow: var(--md-sys-elevation-level2);
 }
 
 .btn-primary:active {
-  transform: translateY(0);
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--md-primary) 32%, transparent);
+  box-shadow: var(--md-sys-elevation-level1);
 }
 
 .btn-primary:disabled {
   opacity: 0.55;
   cursor: not-allowed;
-  transform: none;
   box-shadow: none;
 }
 
@@ -689,26 +579,12 @@ html.nya-extension-ui body {
   width: 64px;
   height: 64px;
   margin: 0 auto 16px;
-  border-radius: 18px;
+  border-radius: var(--radius-lg);
   background: var(--md-primary);
   display: flex;
   align-items: center;
   justify-content: center;
   color: var(--md-sys-color-on-primary);
-  box-shadow: 0 8px 24px color-mix(in srgb, var(--md-primary) 38%, transparent);
-  animation: float 3s ease-in-out infinite;
-}
-
-@keyframes float {
-
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-
-  50% {
-    transform: translateY(-8px);
-  }
 }
 
 .about-name {
@@ -718,14 +594,14 @@ html.nya-extension-ui body {
 }
 
 .about-version {
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--text-muted);
   font-family: var(--font-mono);
   margin: 6px 0 16px;
 }
 
 .about-desc {
-  font-size: 14px;
+  font-size: var(--text-md);
   color: var(--text-secondary);
   line-height: 1.7;
 }
@@ -738,7 +614,7 @@ html.nya-extension-ui body {
 }
 
 .usage-list li {
-  font-size: 14px;
+  font-size: var(--text-md);
   color: var(--text-secondary);
   line-height: 1.6;
 }
@@ -748,13 +624,13 @@ html.nya-extension-ui body {
   font-weight: 600;
 }
 
-/* ── 提示卡片（蓝色背景） ── */
+/* ── 提示卡片 ── */
 .tip-card {
   background: var(--accent-soft);
   border: 1px solid color-mix(in srgb, var(--md-primary) 22%, transparent);
   border-radius: var(--radius-lg);
   padding: 16px 20px;
-  font-size: 13px;
+  font-size: var(--text-sm);
   color: var(--md-primary);
   line-height: 1.65;
   margin-top: 0;
@@ -766,10 +642,10 @@ html.nya-extension-ui body {
 
 .tip-card code {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--text-xs);
   background: color-mix(in srgb, var(--md-primary) 14%, transparent);
   padding: 2px 6px;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -789,24 +665,24 @@ html.nya-extension-ui body {
 }
 
 .toggle-label {
-  font-size: 14px;
+  font-size: var(--text-md);
   font-weight: 500;
   color: var(--text-primary);
   margin-bottom: 4px;
 }
 
 .toggle-desc {
-  font-size: 13px;
+  font-size: var(--text-sm);
   color: var(--text-muted);
   line-height: 1.55;
 }
 
 .toggle-desc code {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--text-xs);
   background: var(--accent-soft);
   padding: 2px 5px;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   color: var(--text-secondary);
 }
 
@@ -887,23 +763,35 @@ html.nya-extension-ui body {
   border-radius: 100px;
   border: 2px solid var(--border);
   background: var(--md-sys-color-surface-bright);
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 500;
   color: var(--text-secondary);
   cursor: pointer;
   user-select: none;
-  transition: all var(--transition);
+  transition: border-color var(--transition), color var(--transition), background var(--transition);
 }
 
 .lang-chip input[type="checkbox"] {
-  display: none;
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.lang-chip-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  line-height: 0;
 }
 
 .lang-chip:hover {
   border-color: var(--accent);
   color: var(--accent);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px color-mix(in srgb, var(--md-primary) 18%, transparent);
 }
 
 .lang-chip--checked,
@@ -911,7 +799,6 @@ html.nya-extension-ui body {
   border-color: var(--accent);
   background: var(--accent-soft);
   color: var(--accent);
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--md-primary) 22%, transparent);
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -926,7 +813,11 @@ html.nya-extension-ui body {
 }
 
 .trigger-icon {
-  font-size: 18px;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  line-height: 0;
+  color: var(--accent);
 }
 
 .trigger-card-desc {
@@ -947,7 +838,7 @@ html.nya-extension-ui body {
 /* 单行选项 */
 .trigger-option-row {
   background: var(--md-sys-color-surface-container-low);
-  transition: all var(--transition);
+  transition: background var(--transition);
 }
 
 .trigger-option-row:hover {
@@ -966,7 +857,15 @@ html.nya-extension-ui body {
 }
 
 .trigger-check-label input[type="checkbox"] {
-  display: none;
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 /* 自定义 checkbox 样式 */
@@ -977,31 +876,16 @@ html.nya-extension-ui body {
   width: 18px;
   height: 18px;
   border: 2px solid var(--md-sys-color-outline-variant);
-  border-radius: 5px;
+  border-radius: var(--radius-xs);
   background: var(--md-sys-color-surface-bright);
   flex-shrink: 0;
   margin-top: 2px;
-  transition: all var(--transition);
+  transition: background var(--transition), border-color var(--transition);
 }
 
 .trigger-check-label:has(input:checked) .trigger-checkmark {
   background: var(--md-primary);
   border-color: var(--accent);
-  animation: checkPop 0.3s ease;
-}
-
-@keyframes checkPop {
-  0% {
-    transform: scale(1);
-  }
-
-  50% {
-    transform: scale(1.2);
-  }
-
-  100% {
-    transform: scale(1);
-  }
 }
 
 .trigger-check-label:has(input:checked) .trigger-checkmark::after {
@@ -1017,7 +901,7 @@ html.nya-extension-ui body {
 
 /* 标签文字 */
 .trigger-option-label {
-  font-size: 14px;
+  font-size: var(--text-md);
   font-weight: 500;
   color: var(--text-primary);
   line-height: 1.4;
@@ -1029,7 +913,7 @@ html.nya-extension-ui body {
 /* 描述文字 */
 .trigger-option-desc {
   display: block;
-  font-size: 12px;
+  font-size: var(--text-sm);
   color: var(--text-muted);
   line-height: 1.5;
   margin-top: 3px;
@@ -1057,26 +941,33 @@ html.nya-extension-ui body {
   align-items: center;
   gap: 5px;
   padding: 5px 12px;
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
   border: 2px solid var(--border);
   background: var(--md-sys-color-surface-bright);
-  font-size: 12px;
+  font-size: var(--text-sm);
   font-weight: 500;
   font-family: var(--font-mono);
   color: var(--text-secondary);
   cursor: pointer;
   user-select: none;
-  transition: all var(--transition);
+  transition: border-color var(--transition), color var(--transition), background var(--transition);
 }
 
 .modifier-key input[type="checkbox"] {
-  display: none;
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .modifier-key:hover {
   border-color: var(--accent);
   color: var(--accent);
-  transform: translateY(-2px);
 }
 
 .modifier-key--checked,
@@ -1084,7 +975,6 @@ html.nya-extension-ui body {
   border-color: var(--accent);
   background: var(--accent-soft);
   color: var(--accent);
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--md-primary) 22%, transparent);
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -1134,36 +1024,34 @@ html.nya-extension-ui body {
   gap: 8px;
   padding: 11px 20px;
   border: none;
-  border-radius: 999px;
-  font-size: 13px;
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
   font-weight: 600;
   font-family: var(--font);
   cursor: pointer;
   color: var(--md-on-primary);
   background: var(--md-primary);
-  box-shadow: 0 4px 16px color-mix(in srgb, var(--md-primary) 30%, transparent);
-  transition: transform 260ms var(--ease-emphasized), box-shadow var(--transition), filter var(--transition);
+  box-shadow: var(--md-sys-elevation-level1);
+  transition: box-shadow var(--transition), background var(--transition);
 }
 
 .btn-add-model__icon {
-  font-size: 17px;
-  font-weight: 700;
-  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  line-height: 0;
 }
 
 .btn-add-model:hover {
-  transform: translateY(-2px) scale(1.01);
-  box-shadow: 0 8px 24px color-mix(in srgb, var(--md-primary) 36%, transparent);
-  filter: brightness(1.02);
+  box-shadow: var(--md-sys-elevation-level2);
 }
 
 .btn-add-model:active {
-  transform: scale(0.98);
+  box-shadow: var(--md-sys-elevation-level1);
 }
 
 .field-input--mono {
   font-family: var(--font-mono);
-  font-size: 12.5px;
+  font-size: var(--text-sm);
 }
 
 .models-list {
@@ -1181,28 +1069,14 @@ html.nya-extension-ui body {
   border-radius: var(--radius-md);
   border: 1px solid var(--border);
   background: var(--md-surface-container);
-  box-shadow: var(--shadow-card);
-  animation: modelRowIn 0.5s var(--ease-emphasized) backwards;
-  animation-delay: calc(min(var(--stagger, 0), 12) * 42ms);
-  transition: border-color var(--transition), box-shadow var(--transition), transform var(--transition);
+  box-shadow: var(--md-sys-elevation-level1);
+  animation: fadeIn 200ms var(--ease-standard);
+  transition: border-color var(--transition), box-shadow var(--transition);
 }
 
 .model-row:hover {
   border-color: color-mix(in srgb, var(--md-primary) 28%, var(--border));
-  box-shadow: var(--shadow-card-hover);
-  transform: translateX(3px);
-}
-
-@keyframes modelRowIn {
-  from {
-    opacity: 0;
-    transform: translateY(12px) scale(0.97);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
+  box-shadow: var(--md-sys-elevation-level2);
 }
 
 .model-row-main {
@@ -1211,14 +1085,18 @@ html.nya-extension-ui body {
 }
 
 .model-row-title {
-  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: var(--text-md);
   font-weight: 600;
   color: var(--text-primary);
   line-height: 1.35;
 }
 
 .model-row-sub {
-  font-size: 11.5px;
+  font-size: var(--text-xs);
   color: var(--text-muted);
   font-family: var(--font-mono);
   margin-top: 4px;
@@ -1230,31 +1108,65 @@ html.nya-extension-ui body {
 .model-row-actions {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
   flex-shrink: 0;
 }
 
 .model-row-icon-btn {
   all: unset;
   cursor: pointer;
-  font-size: 15px;
-  line-height: 1;
-  padding: 6px 8px;
-  border-radius: 10px;
-  transition: transform 220ms var(--ease-emphasized), background var(--transition);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  transition: color var(--transition), background var(--transition);
 }
 
 .model-row-icon-btn:hover {
   background: var(--md-secondary-container);
-  transform: scale(1.08);
-}
-
-.model-row-icon-btn:active {
-  transform: scale(0.94);
+  color: var(--text-primary);
 }
 
 .model-row-icon-btn--danger:hover {
   background: var(--error-bg);
+  color: var(--md-sys-color-error);
+}
+
+.model-row-icon-btn--on {
+  color: var(--md-primary);
+  background: var(--accent-soft);
+}
+
+.model-row-icon-btn--on:hover {
+  background: var(--accent-soft);
+  color: var(--md-primary);
+}
+
+/* 模型行徽标（视觉 / 首选） */
+.model-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  line-height: 1;
+  padding: 3px 7px;
+  border-radius: var(--radius-xs);
+  background: var(--accent-soft);
+  color: var(--md-primary);
+  white-space: nowrap;
+}
+
+.model-badge-icon {
+  display: inline-flex;
+  line-height: 0;
+}
+
+.model-badge--preferred {
+  background: var(--md-sys-color-tertiary-container);
+  color: var(--md-sys-color-on-tertiary-container);
 }
 
 /* 模型行内 Toggle（增强阴影与弹性） */
@@ -1277,10 +1189,9 @@ html.nya-extension-ui body {
 .model-toggle-slider {
   position: absolute;
   inset: 0;
-  background: #d1d5db;
+  background: var(--md-sys-color-surface-container-highest);
   border-radius: 100px;
-  transition: background 0.35s cubic-bezier(0.4, 0, 0.2, 1),
-    box-shadow 0.35s ease;
+  transition: background 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s ease;
 }
 
 .model-toggle-slider::after {
@@ -1293,13 +1204,12 @@ html.nya-extension-ui body {
   height: 22px;
   border-radius: 50%;
   background: var(--md-sys-color-surface-bright);
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--md-sys-color-shadow) 15%, transparent);
-  transition: transform 0.38s cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-shadow: var(--md-sys-elevation-level1);
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .model-toggle input:checked+.model-toggle-slider {
   background: var(--md-primary);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--md-primary) 22%, transparent);
 }
 
 .model-toggle input:checked+.model-toggle-slider::after {
@@ -1307,7 +1217,7 @@ html.nya-extension-ui body {
 }
 
 .model-toggle input:focus-visible+.model-toggle-slider {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--md-sys-color-primary);
   outline-offset: 2px;
 }
 
@@ -1316,10 +1226,10 @@ html.nya-extension-ui body {
   position: fixed;
   inset: 0;
   z-index: 10000;
-  background: rgba(0, 0, 0, 0.4);
-  opacity: 0;
+  background: var(--md-sys-color-scrim);
+  opacity: 0.4;
   pointer-events: none;
-  transition: opacity 380ms var(--ease-emphasized);
+  transition: opacity 200ms var(--ease-emphasized);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
 }
@@ -1339,7 +1249,7 @@ html.nya-extension-ui body {
   padding: 24px;
   pointer-events: none;
   opacity: 0;
-  transition: opacity 320ms var(--ease-standard);
+  transition: opacity 200ms var(--ease-standard);
 }
 
 .modal-sheet--open {
@@ -1354,17 +1264,14 @@ html.nya-extension-ui body {
   display: flex;
   flex-direction: column;
   background-color: var(--md-sys-color-surface-container);
-  border-radius: 28px;
+  border-radius: var(--radius-lg);
   border: 1px solid color-mix(in srgb, var(--md-primary) 12%, var(--border));
-  box-shadow:
-    var(--md-sys-elevation-level3),
-    0 24px 48px color-mix(in srgb, var(--md-primary) 18%, rgba(0, 0, 0, 0.14)),
-    0 8px 20px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--md-sys-elevation-level3);
   transform: translateY(24px) scale(0.94);
   opacity: 0;
   transition:
-    transform 420ms var(--ease-emphasized),
-    opacity 380ms var(--ease-emphasized);
+    transform 220ms var(--ease-emphasized),
+    opacity 200ms var(--ease-emphasized);
 }
 
 .modal-sheet--open .modal-sheet__surface {
@@ -1384,7 +1291,6 @@ html.nya-extension-ui body {
   font-size: 18px;
   font-weight: 600;
   color: var(--text-primary);
-  letter-spacing: 0.01em;
 }
 
 .modal-sheet__close {
@@ -1392,18 +1298,14 @@ html.nya-extension-ui body {
   cursor: pointer;
   display: flex;
   padding: 8px;
-  border-radius: 12px;
+  border-radius: var(--radius-sm);
   color: var(--text-muted);
-  transition: background var(--transition), color var(--transition), transform 200ms var(--ease-emphasized);
+  transition: background var(--transition), color var(--transition);
 }
 
 .modal-sheet__close:hover {
   background: var(--md-secondary-container);
   color: var(--text-primary);
-}
-
-.modal-sheet__close:active {
-  transform: scale(0.92);
 }
 
 .modal-sheet__body {
@@ -1422,26 +1324,22 @@ html.nya-extension-ui body {
 .btn-tonal {
   padding: 11px 22px;
   border: none;
-  border-radius: 999px;
-  font-size: 14px;
+  border-radius: var(--radius-md);
+  font-size: var(--text-md);
   font-weight: 600;
   font-family: var(--font);
   cursor: pointer;
   background: var(--md-secondary-container);
   color: var(--md-on-secondary-container);
-  transition: background var(--transition), transform 200ms var(--ease-emphasized);
+  transition: background var(--transition);
 }
 
 .btn-tonal:hover {
   background: color-mix(in srgb, var(--md-primary) 10%, var(--md-secondary-container));
 }
 
-.btn-tonal:active {
-  transform: scale(0.97);
-}
-
 .modal-sheet__save {
-  border-radius: 999px;
+  border-radius: var(--radius-md);
 }
 
 .model-manager-card {
@@ -1468,7 +1366,7 @@ html.nya-extension-ui body {
   background: var(--md-sys-color-surface-container-low);
   cursor: pointer;
   box-sizing: border-box;
-  transition: box-shadow var(--transition), transform var(--transition), background var(--transition);
+  transition: box-shadow var(--transition), background var(--transition);
   box-shadow: var(--md-sys-elevation-level1);
   border: 2px solid transparent;
 }
@@ -1484,13 +1382,13 @@ html.nya-extension-ui body {
 }
 
 .appearance-mode-card__title {
-  font-size: 14px;
+  font-size: var(--text-md);
   font-weight: 700;
   color: var(--text-primary);
 }
 
 .appearance-mode-card__desc {
-  font-size: 12px;
+  font-size: var(--text-sm);
   color: var(--text-muted);
   line-height: 1.45;
 }
@@ -1512,17 +1410,12 @@ html.nya-extension-ui body {
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
-  transition: transform 0.2s var(--ease-emphasized), box-shadow 0.2s;
+  transition: box-shadow 0.2s;
   border: 3px solid transparent;
-}
-
-.appearance-palette-dot:hover {
-  transform: scale(1.08);
 }
 
 .appearance-palette-dot--active {
   border-color: var(--md-sys-color-primary);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--md-sys-color-primary) 25%, transparent);
 }
 
 .appearance-palette-dot__inner {
@@ -1582,20 +1475,46 @@ html.nya-extension-ui body {
 }
 
 .appearance-bg-card__title {
-  font-size: 14px;
+  font-size: var(--text-md);
   font-weight: 700;
   color: var(--text-primary);
 }
 
 .appearance-bg-card__desc {
-  font-size: 12px;
+  font-size: var(--text-sm);
   color: var(--text-muted);
 }
 
 .appearance-sync-hint {
   text-align: center;
-  font-size: 13px;
+  font-size: var(--text-sm);
   color: var(--text-muted);
   margin-top: 8px;
   margin-bottom: 24px;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   无障碍：键盘焦点环（统一 2px 主色）
+   ═══════════════════════════════════════════════════════════════ */
+.nav-item:focus-visible,
+.sidebar-link:focus-visible,
+.btn-primary:focus-visible,
+.btn-tonal:focus-visible,
+.btn-add-model:focus-visible,
+.eye-btn:focus-visible,
+.modal-sheet__close:focus-visible,
+.model-row-icon-btn:focus-visible,
+.appearance-mode-card:focus-visible,
+.appearance-palette-dot:focus-visible,
+.appearance-bg-card:focus-visible,
+.lang-chip:has(input:focus-visible),
+.modifier-key:has(input:focus-visible),
+.trigger-check-label:has(input:focus-visible) {
+  outline: 2px solid var(--md-sys-color-primary);
+  outline-offset: 2px;
+}
+
+.toggle-switch input:focus-visible+.toggle-slider {
+  outline: 2px solid var(--md-sys-color-primary);
+  outline-offset: 2px;
 }

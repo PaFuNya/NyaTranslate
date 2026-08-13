@@ -8,7 +8,8 @@
    设计 Token（在 .my-ext-panel 作用域内定义，不污染全局）
    ═══════════════════════════════════════════════════════════════════════════ */
 .my-ext-panel,
-#my-ext-icon {
+#my-ext-icon,
+.my-ext-toast {
   --ext-accent: var(--md-sys-color-primary, #5b6af0);
   --ext-accent-hover: color-mix(in srgb, var(--md-sys-color-primary, #5b6af0) 88%, #000);
   --ext-accent-active: color-mix(in srgb, var(--md-sys-color-primary, #5b6af0) 75%, #000);
@@ -21,7 +22,7 @@
     0 0 0 1px color-mix(in srgb, var(--md-sys-color-outline, #79747e) 12%, transparent);
   --ext-radius-icon: 50%;
   --ext-radius-panel: var(--app-border-radius, 14px);
-  --ext-radius-btn: calc(var(--app-border-radius, 14px) * 0.55);
+  --ext-radius-btn: var(--radius-sm, 10px);
   --ext-font: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
     'Microsoft YaHei', 'Noto Sans SC', sans-serif;
   --ext-font-mono: 'SF Mono', 'Fira Code', ui-monospace, monospace;
@@ -68,8 +69,8 @@
 
 #my-ext-icon:hover {
   transform: scale(1.12);
-  box-shadow: 0 4px 16px color-mix(in srgb, var(--md-sys-color-primary, #5b6af0) 45%, transparent),
-    0 0 0 2px color-mix(in srgb, var(--md-sys-color-primary, #5b6af0) 28%, transparent);
+  box-shadow: var(--md-sys-elevation-level3, 0 6px 18px rgba(0, 0, 0, 0.16)),
+    0 0 0 2px color-mix(in srgb, var(--md-sys-color-primary, #5b6af0) 30%, transparent);
 }
 
 #my-ext-icon:active {
@@ -86,6 +87,8 @@
   position: absolute;
   z-index: 2147483647;
   width: 360px;
+  max-width: calc(100vw - 16px);
+  max-height: calc(100vh - 16px);
   background: var(--ext-bg);
   border-radius: var(--ext-radius-panel);
   box-shadow: var(--ext-shadow-panel);
@@ -158,7 +161,7 @@
   color: var(--md-sys-color-primary, var(--ext-accent));
   background: var(--md-sys-color-primary-container, var(--ext-accent-soft));
   padding: 2px 6px;
-  border-radius: calc(var(--app-border-radius, 14px) * 0.35);
+  border-radius: var(--radius-xs, 6px);
   margin-left: 6px;
   white-space: nowrap;
   flex-shrink: 0;
@@ -231,7 +234,7 @@
   z-index: 2147483647;
   background: var(--md-sys-color-surface-container-high, #ffffff);
   border: 1px solid color-mix(in srgb, var(--md-sys-color-outline, #79747e) 18%, transparent);
-  border-radius: calc(var(--app-border-radius, 14px) * 0.72);
+  border-radius: var(--radius-sm, 10px);
   box-shadow: var(--md-sys-elevation-level3, 0 4px 16px rgba(0, 0, 0, 0.12));
   padding: 4px;
   min-width: 160px;
@@ -243,6 +246,7 @@
   all: unset;
   display: flex;
   align-items: center;
+  gap: 7px;
   width: 100%;
   padding: 7px 10px;
   font-size: 12.5px;
@@ -286,6 +290,19 @@
   border-radius: 6px !important;
 }
 
+/* idle 卡的"查询"按钮:主色描边 ghost,区别于普通复制/收藏按钮 */
+.my-ext-btn--query {
+  color: var(--ext-accent);
+  border-color: color-mix(in srgb, var(--md-sys-color-primary, #5b6af0) 45%, transparent);
+}
+
+/* 查询按钮与 ghost 同源,用 !important 保证 hover 态主色样式不被 ghost hover 覆盖 */
+.my-ext-btn--query:hover {
+  background: var(--ext-accent-soft) !important;
+  color: var(--ext-accent) !important;
+  box-shadow: none !important;
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════
    Accordion 堆叠卡片容器
    ═══════════════════════════════════════════════════════════════════════════ */
@@ -296,6 +313,9 @@
   box-sizing: border-box;
   overflow-y: auto;
   max-height: 360px;
+  /* 视口高度不足时面板被 max-height 压缩,wrap 收缩并接管滚动 */
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .my-ext-accordion-wrap::-webkit-scrollbar {
@@ -373,6 +393,22 @@
   background: #fff7ed;
 }
 
+/* "已缓存"小标签(本地单词缓存或后台 cached 回执时显示在卡片头部) */
+.my-ext-cache-badge {
+  all: unset;
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 600;
+  font-family: var(--ext-font);
+  color: var(--ext-accent);
+  background: var(--ext-accent-soft);
+  padding: 1px 6px;
+  border-radius: 4px;
+  line-height: 1.5;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
 /* 状态指示点 */
 .my-ext-accordion-dot {
   all: unset;
@@ -422,7 +458,7 @@
   display: block;
   overflow: hidden;
   max-height: 0;
-  transition: max-height 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: max-height 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   box-sizing: border-box;
 }
 
@@ -584,7 +620,9 @@
 .my-ext-btn:hover {
   background: var(--ext-accent-hover);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(91, 106, 240, 0.3);
+  /* 彩色光晕收敛为 elevation token + primary 色 mix 细描边 */
+  box-shadow: var(--md-sys-elevation-level2, 0 2px 8px rgba(0, 0, 0, 0.14)),
+    0 0 0 1px color-mix(in srgb, var(--md-sys-color-primary, #5b6af0) 30%, transparent);
 }
 
 .my-ext-btn:active {
@@ -846,7 +884,8 @@
   }
 
   30% {
-    box-shadow: 0 0 0 3px rgba(91, 106, 240, 0.35), var(--ext-shadow-panel);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--md-sys-color-primary, #5b6af0) 32%, transparent),
+      var(--ext-shadow-panel);
   }
 
   100% {
@@ -855,7 +894,7 @@
 }
 
 .my-ext-panel--flash {
-  animation: my-ext-flash 0.6s ease-out;
+  animation: my-ext-flash 0.2s ease-out;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -886,4 +925,48 @@
   font-weight: 600;
   font-size: 12px;
   letter-spacing: 0.02em;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   轻量 toast — 内容脚本内提示(如 >500 字符划词提示)
+   复用面板/图标 token,固定于视口底部居中,自动消失
+   ═══════════════════════════════════════════════════════════════════════════ */
+.my-ext-toast {
+  all: initial;
+  position: fixed;
+  left: 50%;
+  bottom: 28px;
+  transform: translateX(-50%) translateY(8px);
+  z-index: 2147483647;
+  max-width: 70vw;
+  padding: 8px 14px;
+  background: var(--md-sys-color-inverse-surface, #2f3033);
+  color: var(--md-sys-color-inverse-on-surface, #ffffff);
+  border-radius: 8px;
+  font-family: var(--ext-font);
+  font-size: 12.5px;
+  line-height: 1.5;
+  text-align: center;
+  box-shadow: var(--md-sys-elevation-level2, 0 2px 8px rgba(0, 0, 0, 0.16));
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--ext-transition), transform var(--ext-transition);
+}
+
+.my-ext-toast.my-ext-toast--visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   无障碍:用户偏好减少动态时,面板/图标/toast 全部降级为瞬时切换
+   ═══════════════════════════════════════════════════════════════════════════ */
+@media (prefers-reduced-motion: reduce) {
+  .my-ext-panel,
+  .my-ext-panel *,
+  #my-ext-icon,
+  .my-ext-toast {
+    transition: none !important;
+    animation: none !important;
+  }
 }

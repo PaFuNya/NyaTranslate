@@ -44,6 +44,10 @@ class DragController {
     this._boundPointerUp     = this.handlePointerUp.bind(this);
     this._boundPointerCancel = this.handlePointerCancel.bind(this);
 
+    // 记录被改写前的原始值,destroy() 时原样恢复
+    this._origCursor    = handleEl.style.cursor;
+    this._origTransition = panelEl.style.transition;
+
     // 核心 2：CSS + JS 双层封杀原生拖拽
     handleEl.style.touchAction    = 'none';   // Pointer Capture 必需
     handleEl.style.userSelect     = 'none';
@@ -107,18 +111,28 @@ class DragController {
       let left, top;
       if (isFixed) {
         // fixed 定位：相对视口约束，面板不得飞出屏幕
-        left = Math.max(8, Math.min(this._pl + dx, vw - pw - 8));
-        top  = Math.max(8, Math.min(this._pt + dy, vh - ph - 8));
+        left = this._clampAxis(this._pl + dx, 8, vw - pw - 8);
+        top  = this._clampAxis(this._pt + dy, 8, vh - ph - 8);
       } else {
         // absolute 定位：叠加滚动偏移后约束
         const sx = window.scrollX, sy = window.scrollY;
-        left = Math.max(sx + 8, Math.min(this._pl + dx, sx + vw - pw - 8));
-        top  = Math.max(sy + 8, Math.min(this._pt + dy, sy + vh - ph - 8));
+        left = this._clampAxis(this._pl + dx, sx + 8, sx + vw - pw - 8);
+        top  = this._clampAxis(this._pt + dy, sy + 8, sy + vh - ph - 8);
       }
 
       this._panel.style.left = `${left}px`;
       this._panel.style.top  = `${top}px`;
     });
+  }
+
+  /**
+   * 单轴边界钳制:常规情况下限制在 [min, max];
+   * 面板比可用空间还大(max < min)时反转区间为 [max, min],
+   * 允许整体左右平移查看,避免被钉死在边缘无法移动。
+   */
+  _clampAxis(value, min, max) {
+    if (max >= min) return Math.max(min, Math.min(value, max));
+    return Math.max(max, Math.min(value, min));
   }
 
   handlePointerUp(e) {
@@ -171,6 +185,10 @@ class DragController {
       cancelAnimationFrame(this._rafId);
       this._rafId = null;
     }
+    // 恢复拖拽期间被改写的样式(handle cursor / panel transition),
+    // 否则面板以 transition:none 进入关闭淡出,动画被跳过
+    this._handle.style.cursor    = this._origCursor ?? '';
+    this._panel.style.transition = this._origTransition ?? '';
     document.body.style.userSelect = '';
   }
 }
@@ -199,6 +217,9 @@ class ResizeController {
     this._boundPointerMove   = this.handlePointerMove.bind(this);
     this._boundPointerUp     = this.handlePointerUp.bind(this);
     this._boundPointerCancel = this.handlePointerCancel.bind(this);
+
+    // 记录被改写前的 transition,destroy() 时原样恢复
+    this._origTransition = panelEl.style.transition;
 
     // 封杀原生拖拽
     handleEl.style.touchAction    = 'none';
@@ -244,8 +265,11 @@ class ResizeController {
       this._rafId = null;
       if (!this._active) return;
 
-      const newW = Math.max(this._minWidth,  this._ow + (this._curX - this._ox));
-      const newH = Math.max(this._minHeight, this._oh + (this._curY - this._oy));
+      // 放大上限:不超过视口(留 16px 边距),避免面板超出视口后拖拽被钉死
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const newW = Math.max(this._minWidth,  Math.min(this._ow + (this._curX - this._ox), vw - 16));
+      const newH = Math.max(this._minHeight, Math.min(this._oh + (this._curY - this._oy), vh - 16));
 
       this._panel.style.width  = `${newW}px`;
       this._panel.style.height = `${newH}px`;
@@ -296,6 +320,8 @@ class ResizeController {
       cancelAnimationFrame(this._rafId);
       this._rafId = null;
     }
+    // 恢复缩放期间被改写的 transition,避免关闭淡出动画被跳过
+    this._panel.style.transition = this._origTransition ?? '';
     document.body.style.userSelect = '';
   }
 }

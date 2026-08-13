@@ -17,6 +17,10 @@ const NS = 'my-ext';
 
 const SVG_PIN = `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V17z"/></svg>`;
 const SVG_CLOSE = `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+// Feather 风格:统一 stroke-width 2、currentColor,尺寸 13px 与面板图标一致
+const SVG_PIN_FILLED = `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1z"/></svg>`;
+const SVG_SCREEN = `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>`;
+const SVG_NOTE = `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.2 4.8a4 4 0 0 1 0 5.66L8 21H3v-5L14.34 4.8a4 4 0 0 1 6.86 0z"/></svg>`;
 const SVG_CHAT = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
 const SVG_CHEVRON = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>`;
 const SVG_RESIZE = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 21 15 21 21 15"/><line x1="21" y1="21" x2="15" y2="15"/></svg>`;
@@ -65,6 +69,9 @@ const DEFAULT_CONFIG = {
   },
   preferredAction: 'translate',
   models: [],
+  // 本地单词缓存(wordCache):后台维护的 LRU 词典结果,键为小写单词,
+  // 命中时内容层直接渲染缓存卡片,不再发请求
+  wordCache: {},
   appearance: { ...NyaAppearance.DEFAULT },
 };
 
@@ -94,13 +101,19 @@ class ConfigManager {
   _deepMerge(defaults, overrides) {
     const out = { ...defaults };
     for (const k of Object.keys(overrides)) {
+      // 递归合并仅在两侧均为普通对象时进行;数组(如 wordCache 的 [[word, entry], ...])
+      // 与默认占位对象(如 wordCache: {})相遇时,以 override 的数组形态整体直通,
+      // 防止数组被按索引键揉成普通对象
       if (
         k in defaults &&
         defaults[k] !== null &&
         typeof defaults[k] === 'object' &&
-        !Array.isArray(defaults[k])
+        !Array.isArray(defaults[k]) &&
+        overrides[k] !== null &&
+        typeof overrides[k] === 'object' &&
+        !Array.isArray(overrides[k])
       ) {
-        out[k] = this._deepMerge(defaults[k], overrides[k] ?? {});
+        out[k] = this._deepMerge(defaults[k], overrides[k]);
       } else {
         out[k] = overrides[k];
       }

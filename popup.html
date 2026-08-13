@@ -14,8 +14,8 @@
   <!-- Header -->
   <div class="popup-header">
     <div class="popup-logo">
-      <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none"
-        stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
       </svg>
     </div>
@@ -23,20 +23,42 @@
       <div class="popup-title">NyaTranslate-喵译</div>
       <div class="popup-subtitle">多模型 AI 翻译 · 视觉识别</div>
     </div>
-    <div class="popup-version">v3.1</div>
+    <div class="popup-version" id="popup-version"></div>
   </div>
 
   <!-- Tab 切换栏 -->
-  <div class="tab-bar">
-    <button class="tab-btn tab-btn--active" data-tab="status">⚡ 状态</button>
-    <button class="tab-btn" data-tab="history">📜 翻译历史</button>
+  <div class="tab-bar" role="tablist">
+    <button class="tab-btn tab-btn--active" data-tab="status" type="button" role="tab" aria-selected="true">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+      </svg>
+      <span>状态</span>
+    </button>
+    <button class="tab-btn" data-tab="history" type="button" role="tab" aria-selected="false">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="10" />
+        <polyline points="12 6 12 12 16 14" />
+      </svg>
+      <span>翻译历史</span>
+    </button>
+    <button class="tab-btn" data-tab="wordbook" type="button" role="tab" aria-selected="false">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+      </svg>
+      <span>生词本</span>
+    </button>
   </div>
 
   <!-- ── Tab: 状态 ── -->
   <div class="tab-pane tab-pane--active" id="tab-status">
 
-    <div class="status-section">
-      <div class="status-label">协议配置状态</div>
+    <!-- 配置状态卡：协议状态与模型摘要合并为一张卡 -->
+    <div class="status-card">
+      <div class="status-card-title">配置状态</div>
       <div class="status-grid">
 
         <div class="status-item">
@@ -55,51 +77,48 @@
           <span class="status-badge" id="badge-anthropic">检测中…</span>
         </div>
 
-      </div>
-
-      <div class="status-label" style="margin-top:10px;">模型列表（划词 / 截图共用）</div>
-      <div class="status-grid">
-
         <div class="status-item">
           <div class="status-item-name">
-            <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2"
-              stroke-linecap="round" style="flex-shrink:0">
-              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
-            </svg>
+            <span class="status-dot" id="dot-models"></span>
             已启用模型
           </div>
-          <span class="status-badge" id="badge-models-summary" style="font-family:monospace;font-size:10.5px;">—</span>
+          <span class="status-badge status-badge--models" id="badge-models-summary">—</span>
         </div>
 
       </div>
     </div>
 
-    <!-- 截图快捷键提示（移除按钮，改为文字提示） -->
+    <!-- 截图快捷键提示 -->
     <div class="shortcut-hint">
-      <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"
-        stroke-linecap="round">
-        <rect x="2" y="6" width="20" height="12" rx="2"/>
-        <path d="M6 10h0M10 10h0M14 10h0M18 10h0M8 14h8"/>
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+        <circle cx="12" cy="13" r="4" />
       </svg>
-      截图翻译：按 <kbd>Alt+Shift+S</kbd> 或右键菜单
+      <span>截图翻译：按 <kbd>Alt+Shift+S</kbd> 或右键菜单</span>
     </div>
 
     <!-- 未配置警告 -->
     <div class="warning-banner" id="warning-banner">
-      <span>⚠️</span>
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+        <line x1="12" y1="9" x2="12" y2="13" />
+        <line x1="12" y1="17" x2="12.01" y2="17" />
+      </svg>
       <span>尚未为已启用的模型填写完整凭证（API Key 与 Base URL），或未启用任何模型，请进入设置页。</span>
     </div>
 
     <div class="divider"></div>
 
     <div class="popup-footer">
-      <button class="btn-settings" id="btn-open-settings">
-        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2"
-          stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="3"/>
-          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+      <button class="btn-settings" id="btn-open-settings" type="button">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="3" />
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
         </svg>
-        打开设置
+        <span>打开设置</span>
       </button>
     </div>
 
@@ -109,15 +128,43 @@
 
   <!-- ── Tab: 翻译历史 ── -->
   <div class="tab-pane" id="tab-history">
-    <div class="history-pane">
-      <div class="history-toolbar">
-        <span class="history-count" id="history-count">加载中…</span>
-        <button class="btn-clear" id="btn-clear-history">🗑 清空历史</button>
+    <div class="pane-toolbar">
+      <div class="search-box">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="11" cy="11" r="8" />
+          <line x1="21" y1="21" x2="16.65" y2="16.65" />
+        </svg>
+        <input id="history-search" type="text" placeholder="搜索原文或译文" aria-label="搜索翻译历史" spellcheck="false"
+          autocomplete="off" />
       </div>
-      <div class="history-list" id="history-list">
-        <div class="history-empty">暂无翻译记录喵~</div>
-      </div>
+      <button class="btn-clear" id="btn-clear-history" type="button">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polyline points="3 6 5 6 21 6" />
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+        </svg>
+        <span>清空历史</span>
+      </button>
     </div>
+    <div class="pane-count" id="history-count">加载中…</div>
+    <div class="list" id="history-list"></div>
+  </div>
+
+  <!-- ── Tab: 生词本 ── -->
+  <div class="tab-pane" id="tab-wordbook">
+    <div class="pane-toolbar">
+      <span class="pane-count" id="wordbook-count">加载中…</span>
+      <button class="btn-clear" id="btn-clear-wordbook" type="button">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polyline points="3 6 5 6 21 6" />
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+        </svg>
+        <span>清空生词</span>
+      </button>
+    </div>
+    <div class="list" id="wordbook-list"></div>
   </div>
 
   <script src="appearance.js"></script>

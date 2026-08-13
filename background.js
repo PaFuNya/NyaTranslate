@@ -1,21 +1,39 @@
 /**
- * Background Service Worker — NyaTranslate v3.1
+ * Background Service Worker — NyaTranslate v4.2
  *
- * 架构重构要点：
+ * 架构要点：
  *   - 零硬编码厂商信息：模型 ID / Base URL / API Key 全部动态读自 storage
  *   - 适配器模式保留（OpenAIAdapter / ClaudeAdapter），入口改为动态 cfg
- *   - notConfigured 标记：未配置时优雅降级，不暴力抛错
+ *   - 适配器层统一 30s 真超时（AbortController 中止底层 fetch），
+ *     429/5xx/网络异常自动重试 1 次（800ms 退避），重试信息不污染用户文案
+ *   - 错误统一脱敏（sk-xxx）并按状态码映射为友好文案，原始错误只进 console
+ *   - 批级完成回执 nya-multi-done；HistoryManager 写入串行化 + 同原文同模型 1 分钟内去重
+ *   - 单词结果 LRU 缓存 wordCache（上限 500）；生词本 wordBook；视觉模型独立开关 visionEnabled
+ *   - 右键「翻译所选文字」走多引擎 dispatch；历史开关 historyEnabled
  *   - 截图调度权移交 background：keyboard shortcut + 右键菜单直接 captureVisibleTab
- *     并 push dataUrl 给 content.js（消除 popup 关闭导致的时序问题）
- *   - HistoryManager 保持不变
+ *     并 push dataUrl 给 content（消除 popup 关闭导致的时序问题）
  */
 
 'use strict';
 
-// ─── 存储 Schema 默认值 ───────────────────────────────────────────────────────
+// ─── 存储 Schema 默认值与常量 ───────────────────────────────────────────────
 
 const DEFAULT_OPENAI_BASE_URL    = 'https://api.openai.com/v1';
 const DEFAULT_ANTHROPIC_BASE_URL = 'https://api.anthropic.com/v1';
+
+/** 适配器请求超时（真 abort 底层 fetch） */
+const REQUEST_TIMEOUT_MS   = 30000;
+/** 失败重试退避间隔 */
+const RETRY_BACKOFF_MS     = 800;
+/** 图片最大体积（8MB） */
+const IMAGE_MAX_BYTES      = 8 * 1024 * 1024;
+/** 图片拉取超时 */
+const IMAGE_FETCH_TIMEOUT_MS = 15000;
+/** 单词结果缓存（LRU） */
+const WORD_CACHE_KEY       = 'wordCache';
+const WORD_CACHE_MAX       = 500;
+/** 生词本 */
+const WORD_BOOK_KEY        = 'wordBook';
 
 /**
  * @returns {string}
@@ -29,8 +47,21 @@ function newModelRowId() {
 }
 
 /**
+ * @returns {string}
+ */
+function newRequestId() {
+  try {
+    return crypto.randomUUID();
+  } catch (_) {
+    return `r-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  }
+}
+
+/**
  * 统一解析 models：支持 v4 独立鉴权结构，并兼容旧版全局 Key + 旧 models 行。
- * @typedef {{ id: string, modelId: string, displayName: string, protocol: 'openai'|'anthropic', baseUrl: string, apiKey: string, enabled: boolean }} ModelRow
+ * 旧格式行（{id:'gpt-4o', provider:'openai'}）保留原始 id 作为行 id，
+ * 与 content 侧 _normalizeModelRow 的卡片 key 同源，消除两端 id 不一致。
+ * @typedef {{ id: string, modelId: string, displayName: string, protocol: 'openai'|'anthropic', baseUrl: string, apiKey: string, enabled: boolean, visionEnabled: boolean }} ModelRow
  * @param {Record<string, unknown>} stored
  * @returns {ModelRow[]}
  */
@@ -59,6 +90,7 @@ function ensureModelsArray(stored) {
       baseUrl:     String(row.baseUrl || '').trim().replace(/\/$/, ''),
       apiKey:      String(row.apiKey || ''),
       enabled:     row.enabled !== false,
+      visionEnabled: row.visionEnabled === true,
     });
   };
 
@@ -69,28 +101,31 @@ function ensureModelsArray(stored) {
       const proto = m.protocol === 'anthropic' ? 'anthropic' : 'openai';
       const defBase = proto === 'anthropic' ? DEFAULT_ANTHROPIC_BASE_URL : DEFAULT_OPENAI_BASE_URL;
       pushRow({
-        id:          m.id,
-        modelId:     m.modelId,
-        displayName: m.displayName != null ? m.displayName : m.modelId,
-        protocol:    proto,
-        baseUrl:     m.baseUrl != null && String(m.baseUrl).trim() ? m.baseUrl : defBase,
-        apiKey:      m.apiKey != null ? m.apiKey : '',
-        enabled:     m.enabled,
+        id:            m.id,
+        modelId:       m.modelId,
+        displayName:   m.displayName != null ? m.displayName : m.modelId,
+        protocol:      proto,
+        baseUrl:       m.baseUrl != null && String(m.baseUrl).trim() ? m.baseUrl : defBase,
+        apiKey:        m.apiKey != null ? m.apiKey : '',
+        enabled:       m.enabled,
+        visionEnabled: m.visionEnabled === true,
       });
       continue;
     }
 
+    // 旧格式行：{id:'gpt-4o', provider:'openai'} —— 保留原始 id，不再生成随机 UUID
     const oldApiName = String(m.id || '').trim();
     if (!oldApiName) continue;
     const proto = m.provider === 'anthropic' ? 'anthropic' : 'openai';
     pushRow({
-      id:          newModelRowId(),
-      modelId:     oldApiName,
-      displayName: oldApiName,
-      protocol:    proto,
-      baseUrl:     proto === 'anthropic' ? globals.anthropicBaseUrl : globals.openaiBaseUrl,
-      apiKey:      proto === 'anthropic' ? globals.anthropicKey : globals.openaiKey,
-      enabled:     m.enabled !== false,
+      id:            oldApiName,
+      modelId:       oldApiName,
+      displayName:   oldApiName,
+      protocol:      proto,
+      baseUrl:       proto === 'anthropic' ? globals.anthropicBaseUrl : globals.openaiBaseUrl,
+      apiKey:        proto === 'anthropic' ? globals.anthropicKey : globals.openaiKey,
+      enabled:       m.enabled !== false,
+      visionEnabled: m.visionEnabled === true,
     });
   }
 
@@ -98,44 +133,48 @@ function ensureModelsArray(stored) {
   const legacyProto = stored.textModelProtocol === 'anthropic' ? 'anthropic' : 'openai';
   if (legacyText && !out.some((r) => r.modelId === legacyText)) {
     pushRow({
-      id:          newModelRowId(),
-      modelId:     legacyText,
-      displayName: legacyText,
-      protocol:    legacyProto,
-      baseUrl:     legacyProto === 'anthropic' ? globals.anthropicBaseUrl : globals.openaiBaseUrl,
-      apiKey:      legacyProto === 'anthropic' ? globals.anthropicKey : globals.openaiKey,
-      enabled:     true,
+      id:            legacyText,
+      modelId:       legacyText,
+      displayName:   legacyText,
+      protocol:      legacyProto,
+      baseUrl:       legacyProto === 'anthropic' ? globals.anthropicBaseUrl : globals.openaiBaseUrl,
+      apiKey:        legacyProto === 'anthropic' ? globals.anthropicKey : globals.openaiKey,
+      enabled:       true,
+      visionEnabled: false,
     });
   }
 
   if (out.length === 0) {
     return [
       {
-        id: newModelRowId(),
+        id: 'gpt-4o',
         modelId: 'gpt-4o',
         displayName: 'GPT-4o',
         protocol: 'openai',
         baseUrl: DEFAULT_OPENAI_BASE_URL,
         apiKey: '',
         enabled: true,
+        visionEnabled: false,
       },
       {
-        id: newModelRowId(),
+        id: 'claude-3-5-sonnet-20241022',
         modelId: 'claude-3-5-sonnet-20241022',
         displayName: 'Claude 3.5 Sonnet',
         protocol: 'anthropic',
         baseUrl: DEFAULT_ANTHROPIC_BASE_URL,
         apiKey: '',
         enabled: true,
+        visionEnabled: false,
       },
       {
-        id: newModelRowId(),
+        id: 'deepseek-chat',
         modelId: 'deepseek-chat',
         displayName: 'DeepSeek Chat',
         protocol: 'openai',
         baseUrl: 'https://api.deepseek.com/v1',
         apiKey: '',
         enabled: true,
+        visionEnabled: false,
       },
     ];
   }
@@ -193,8 +232,40 @@ function buildCfgForModel(stored, override) {
   };
 }
 
+/**
+ * 按请求类型差异化 max_tokens：dictionary-complex / combined 输出较长，放宽到 2048。
+ * @param {string} type
+ * @returns {number}
+ */
+function maxTokensForType(type) {
+  switch (type) {
+    case 'dictionary-complex':
+    case 'combined':
+    case 'vision':
+      return 2048;
+    case 'translate':
+    case 'dictionary':
+    default:
+      return 1024;
+  }
+}
 
-// ─── System Prompt 工厂 ───────────────────────────────────────────────────────
+/**
+ * 按需读取运行所需配置键，替代 get(null) 全量读库（storage 中可能含大量历史记录）。
+ * @returns {Promise<Record<string, unknown>>}
+ */
+async function getSettings() {
+  return chrome.storage.local.get([
+    'models',
+    'wordDetailEnabled',
+    'exampleSentenceMode',
+    'historyEnabled',
+    'wordCache',
+  ]);
+}
+
+
+// ─── 系统 Prompt 工厂 ───────────────────────────────────────────────────────
 
 function buildSystemPrompt(type) {
   if (type === 'translate') {
@@ -256,16 +327,113 @@ function buildSystemPrompt(type) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  动态配置读取器
-//  从 storage 构建运行时 cfg 对象，不再依赖硬编码 MODEL_CONFIG
+//  网络层：真超时 + 自动重试 + 错误脱敏
 // ═══════════════════════════════════════════════════════════════════════════
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * 对 sk-xxx 形态的文本做脱敏（sk-***）。
+ * @param {string} text
+ * @returns {string}
+ */
+function sanitizeSk(text) {
+  return String(text || '').replace(/\bsk-[A-Za-z0-9_-]+/g, 'sk-***');
+}
+
+/**
+ * 带 AbortController 的真超时 fetch：超时即中止底层请求并抛带标记的异常。
+ * 网络异常抛出 { network: true } 的 Error，超时抛出 { timeout: true, timeoutMs } 的 Error。
+ * @param {string} url
+ * @param {RequestInit} options
+ * @param {number} timeoutMs
+ * @returns {Promise<Response>}
+ */
+async function fetchWithTimeout(url, options, timeoutMs) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } catch (e) {
+    if (e && (e.name === 'AbortError' || e.name === 'TimeoutError')) {
+      const err = new Error(`请求超时(${Math.round(timeoutMs / 1000)}s)`);
+      err.timeout = true;
+      err.timeoutMs = timeoutMs;
+      throw err;
+    }
+    const err = new Error(e?.message || '网络请求失败');
+    err.network = true;
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * 带自动重试的执行器：对 429/5xx/网络异常自动重试 1 次（退避 800ms），
+ * 重试仍失败才抛错。重试过程仅 console.warn（已脱敏），不污染用户可见文案。
+ * @template T
+ * @param {() => Promise<T>} fn
+ * @param {{ retries?: number, backoffMs?: number }} [opts]
+ * @returns {Promise<T>}
+ */
+async function withRetry(fn, opts) {
+  const retries  = opts?.retries ?? 1;
+  const backoffMs = opts?.backoffMs ?? RETRY_BACKOFF_MS;
+  let lastErr;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await fn(attempt);
+    } catch (e) {
+      lastErr = e;
+      const status = typeof e?.status === 'number' ? e.status : 0;
+      const retryable = status === 429 || (status >= 500 && status <= 599) || e?.network === true;
+      if (!retryable || attempt >= retries) break;
+      console.warn(
+        `[NyaTranslate] 请求失败（尝试 ${attempt + 1}/${retries + 1}），${backoffMs}ms 后自动重试：`,
+        sanitizeSk(e?.message || String(e))
+      );
+      await sleep(backoffMs);
+    }
+  }
+  throw lastErr;
+}
+
+/**
+ * 统一把异常映射为面向用户的友好文案，并对任何 sk-xxx 形态原文做脱敏。
+ * 原始错误信息只允许通过 console.error 输出，绝不进入用户可见消息。
+ * @param {unknown} err
+ * @returns {string}
+ */
+function friendlyError(err) {
+  const status = typeof err?.status === 'number' ? err.status : 0;
+  if (status === 401 || status === 403) return 'API Key 无效,请在设置中检查';
+  if (status === 429) return '请求过于频繁,请稍后重试';
+  if (status >= 500 && status <= 599) return '服务暂时不可用,请稍后重试';
+  if (err?.timeout === true || err?.name === 'AbortError') {
+    const sec = typeof err?.timeoutMs === 'number' ? Math.round(err.timeoutMs / 1000) : 30;
+    return `请求超时(${sec}s)`;
+  }
+  if (err?.network === true) return '网络请求失败,请检查网络与 Base URL';
+
+  const raw = err?.message || String(err || '未知错误');
+  return sanitizeSk(raw) || '请求失败,请重试';
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  适配器一：OpenAI 兼容协议
+//  超时 / 重试 / 状态码映射统一收敛在 _request 层，所有视觉与文本路径共享
 // ═══════════════════════════════════════════════════════════════════════════
 
 class OpenAIAdapter {
-  static async fetchText(text, systemPrompt, apiKey, cfg) {
+  /**
+   * @param {string} text
+   * @param {string} systemPrompt
+   * @param {string} apiKey
+   * @param {{ model:string, baseUrl:string }} cfg
+   * @param {number} [maxTokens]
+   */
+  static async fetchText(text, systemPrompt, apiKey, cfg, maxTokens) {
     const body = {
       model:       cfg.model,
       messages: [
@@ -273,13 +441,21 @@ class OpenAIAdapter {
         { role: 'user',   content: text },
       ],
       stream:      false,
-      max_tokens:  1024,
+      max_tokens:  maxTokens ?? maxTokensForType('translate'),
       temperature: 0.3,
     };
     return OpenAIAdapter._request(cfg.baseUrl, apiKey, body);
   }
 
-  static async fetchVision(base64, mimeType, systemPrompt, apiKey, cfg) {
+  /**
+   * @param {string} base64
+   * @param {string} mimeType
+   * @param {string} systemPrompt
+   * @param {string} apiKey
+   * @param {{ model:string, baseUrl:string }} cfg
+   * @param {number} [maxTokens]
+   */
+  static async fetchVision(base64, mimeType, systemPrompt, apiKey, cfg, maxTokens) {
     const body = {
       model: cfg.model,
       messages: [
@@ -295,40 +471,47 @@ class OpenAIAdapter {
         },
       ],
       stream:      false,
-      max_tokens:  2048,
+      max_tokens:  maxTokens ?? maxTokensForType('vision'),
       temperature: 0.3,
     };
     return OpenAIAdapter._request(cfg.baseUrl, apiKey, body);
   }
 
+  /**
+   * 底层请求：30s 真超时（AbortController）+ 429/5xx/网络异常自动重试 1 次。
+   * 抛出的异常携带 status / network / timeout 标记，供重试判定与友好文案映射。
+   * @param {string} url
+   * @param {string} apiKey
+   * @param {object} body
+   * @returns {Promise<string>}
+   */
   static async _request(url, apiKey, body) {
-    let response;
-    try {
-      response = await fetch(url, {
+    return withRetry(async () => {
+      const response = await fetchWithTimeout(url, {
         method:  'POST',
         headers: {
           'Content-Type':  'application/json',
           'Authorization': `Bearer ${apiKey.trim()}`,
         },
         body: JSON.stringify(body),
-      });
-    } catch (e) {
-      throw new Error(`网络请求失败，请检查网络连接。(${e.message})`);
-    }
+      }, REQUEST_TIMEOUT_MS);
 
-    if (!response.ok) {
-      let errMsg = `API 请求失败 (HTTP ${response.status})`;
-      try {
-        const d = await response.json();
-        if (d?.error?.message) errMsg = d.error.message;
-      } catch (_) { /* 忽略 JSON 解析失败 */ }
-      throw new Error(errMsg);
-    }
+      if (!response.ok) {
+        let errMsg = `API 请求失败 (HTTP ${response.status})`;
+        try {
+          const d = await response.json();
+          if (d?.error?.message) errMsg = d.error.message;
+        } catch (_) { /* 忽略 JSON 解析失败 */ }
+        const err = new Error(errMsg);
+        err.status = response.status;
+        throw err;
+      }
 
-    const data    = await response.json();
-    const content = data?.choices?.[0]?.message?.content;
-    if (!content) throw new Error('模型返回了空内容，请重试。');
-    return content.trim();
+      const data    = await response.json();
+      const content = data?.choices?.[0]?.message?.content;
+      if (!content) throw new Error('模型返回了空内容，请重试。');
+      return content.trim();
+    });
   }
 }
 
@@ -337,10 +520,17 @@ class OpenAIAdapter {
 // ═══════════════════════════════════════════════════════════════════════════
 
 class ClaudeAdapter {
-  static async fetchText(text, systemPrompt, apiKey, cfg) {
+  /**
+   * @param {string} text
+   * @param {string} systemPrompt
+   * @param {string} apiKey
+   * @param {{ model:string, baseUrl:string }} cfg
+   * @param {number} [maxTokens]
+   */
+  static async fetchText(text, systemPrompt, apiKey, cfg, maxTokens) {
     const body = {
       model:      cfg.model,
-      max_tokens: 1024,
+      max_tokens: maxTokens ?? maxTokensForType('translate'),
       system:     systemPrompt,
       messages: [
         { role: 'user', content: text },
@@ -349,10 +539,18 @@ class ClaudeAdapter {
     return ClaudeAdapter._request(cfg.baseUrl, apiKey, body);
   }
 
-  static async fetchVision(base64, mimeType, systemPrompt, apiKey, cfg) {
+  /**
+   * @param {string} base64
+   * @param {string} mimeType
+   * @param {string} systemPrompt
+   * @param {string} apiKey
+   * @param {{ model:string, baseUrl:string }} cfg
+   * @param {number} [maxTokens]
+   */
+  static async fetchVision(base64, mimeType, systemPrompt, apiKey, cfg, maxTokens) {
     const body = {
       model:      cfg.model,
-      max_tokens: 2048,
+      max_tokens: maxTokens ?? maxTokensForType('vision'),
       system:     systemPrompt,
       messages: [
         {
@@ -373,10 +571,16 @@ class ClaudeAdapter {
     return ClaudeAdapter._request(cfg.baseUrl, apiKey, body);
   }
 
+  /**
+   * 底层请求：30s 真超时（AbortController）+ 429/5xx/网络异常自动重试 1 次。
+   * @param {string} url
+   * @param {string} apiKey
+   * @param {object} body
+   * @returns {Promise<string>}
+   */
   static async _request(url, apiKey, body) {
-    let response;
-    try {
-      response = await fetch(url, {
+    return withRetry(async () => {
+      const response = await fetchWithTimeout(url, {
         method:  'POST',
         headers: {
           'Content-Type':      'application/json',
@@ -384,45 +588,128 @@ class ClaudeAdapter {
           'anthropic-version': '2023-06-01',
         },
         body: JSON.stringify(body),
-      });
-    } catch (e) {
-      throw new Error(`网络请求失败，请检查网络连接。(${e.message})`);
-    }
+      }, REQUEST_TIMEOUT_MS);
 
-    if (!response.ok) {
-      let errMsg = `API 请求失败 (HTTP ${response.status})`;
-      try {
-        const d = await response.json();
-        if (d?.error?.message) errMsg = d.error.message;
-      } catch (_) { /* 忽略 JSON 解析失败 */ }
-      throw new Error(errMsg);
-    }
+      if (!response.ok) {
+        let errMsg = `API 请求失败 (HTTP ${response.status})`;
+        try {
+          const d = await response.json();
+          if (d?.error?.message) errMsg = d.error.message;
+        } catch (_) { /* 忽略 JSON 解析失败 */ }
+        const err = new Error(errMsg);
+        err.status = response.status;
+        throw err;
+      }
 
-    const data    = await response.json();
-    const content = data?.content?.[0]?.text;
-    if (!content) throw new Error('模型返回了空内容，请重试。');
-    return content.trim();
+      const data    = await response.json();
+      const content = data?.content?.[0]?.text;
+      if (!content) throw new Error('模型返回了空内容，请重试。');
+      return content.trim();
+    });
   }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  单词结果 LRU 缓存
+//  storage key 'wordCache'，条目 { result, model, ts }，上限 500
+// ═══════════════════════════════════════════════════════════════════════════
+
+const WordCache = {
+  /** @type {Map<string, {result:string, model:string, ts:number}>|null} */
+  _map: null,
+  /** 冷启动并发去重:加载中的 promise 单例,防止多实例同时建 Map 互相覆盖 */
+  _loadPromise: null,
+
+  /** 懒加载到内存（chrome.storage 无法存 Map，与 [word, entry] 数组互转） */
+  _load() {
+    if (this._map) return Promise.resolve(this._map);
+    if (this._loadPromise) return this._loadPromise;
+    this._loadPromise = chrome.storage.local.get(WORD_CACHE_KEY).then((stored) => {
+      const arr = stored[WORD_CACHE_KEY];
+      const map = new Map();
+      if (Array.isArray(arr)) {
+        for (const item of arr) {
+          if (!Array.isArray(item) || item.length < 2) continue;
+          const [word, entry] = item;
+          if (typeof word === 'string' && entry && typeof entry.result === 'string') {
+            map.set(word.toLowerCase(), {
+              result: entry.result,
+              model:  String(entry.model || ''),
+              ts:     typeof entry.ts === 'number' ? entry.ts : 0,
+            });
+          }
+        }
+      }
+      this._map = map;
+      this._loadPromise = null;
+      return map;
+    }).catch((err) => {
+      this._loadPromise = null;
+      console.warn('[NyaTranslate][WordCache] 加载失败:', err);
+      return new Map();
+    });
+  },
+
+  /**
+   * 查询缓存：命中时刷新 LRU 顺序并异步持久化。
+   * @param {string} word
+   * @returns {Promise<{result:string, model:string, ts:number}|null>}
+   */
+  async get(word) {
+    const map = await this._load();
+    const key = String(word || '').toLowerCase().trim();
+    if (!key) return null;
+    const entry = map.get(key);
+    if (!entry) return null;
+    // LRU：命中后重新 set，使其排到队尾（最近使用）
+    map.delete(key);
+    map.set(key, entry);
+    this._persist();
+    return entry;
+  },
+
+  /**
+   * 写入缓存并触发 LRU 淘汰（超出上限时移除队首最久未用条目）。
+   * @param {string} word
+   * @param {{ result:string, model:string }} entry
+   */
+  async set(word, entry) {
+    const map = await this._load();
+    const key = String(word || '').toLowerCase().trim();
+    if (!key) return;
+    map.delete(key);
+    map.set(key, { result: String(entry.result || ''), model: String(entry.model || ''), ts: Date.now() });
+    while (map.size > WORD_CACHE_MAX) {
+      const oldest = map.keys().next().value;
+      map.delete(oldest);
+    }
+    this._persist();
+  },
+
+  /** 异步持久化,通过 promise 链串行化,失败仅告警,不影响主流程 */
+  _persist() {
+    if (!this._map) return;
+    const arr = Array.from(this._map.entries());
+    WordCache._persistQueue = (WordCache._persistQueue || Promise.resolve())
+      .then(() => chrome.storage.local.set({ [WORD_CACHE_KEY]: arr }))
+      .catch(() => {});
+  },
+};
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  请求分发器 — 文本翻译/解释
 // ═══════════════════════════════════════════════════════════════════════════
 
 /**
- * 文本翻译/解释统一入口
- * 动态读取 storage 中的协议配置，无硬编码厂商信息
+ * 文本翻译/解释统一入口（v3 兼容编程接口，消息路径已移除但保留函数形态，
+ * 与多引擎路径共享适配器层的超时 / 重试 / 脱敏）。
  * @param {string} text
  * @param {string} type  'translate' | 'explain' | 'combined'
+ * @param {{ targetModelId?: string, modelId?: string }} [override] 面板所选模型配置行 id
  * @returns {Promise<string>}
  */
-/**
- * @param {string} text
- * @param {string} type
- * @param {{ targetModelId?: string, modelId?: string }} [override] 面板所选模型配置行 id
- */
 async function fetchLLM(text, type, override) {
-  const s = await chrome.storage.local.get(null);
+  const s = await getSettings();
   const cfg = buildCfgForModel(s, override || {});
 
   if (!cfg.hasRow) {
@@ -450,36 +737,52 @@ async function fetchLLM(text, type, override) {
   const trimmedText = text.trim();
   const isSingleWord = wordDetailEnabled && trimmedText.split(/\s+/).length === 1 && /^[a-zA-Z'-]+$/.test(trimmedText);
   const complexity = s.exampleSentenceMode || 'simple';
+  const dictType = complexity === 'complex' ? 'dictionary-complex' : 'dictionary';
   const systemPrompt = isSingleWord
-    ? buildSystemPrompt(complexity === 'complex' ? 'dictionary-complex' : 'dictionary')
+    ? buildSystemPrompt(dictType)
     : buildSystemPrompt(type);
+  const maxTokens = maxTokensForType(isSingleWord ? dictType : type);
 
   if (cfg.protocol === 'anthropic') {
-    return ClaudeAdapter.fetchText(text, systemPrompt, cfg.apiKey, cfg);
+    return ClaudeAdapter.fetchText(text, systemPrompt, cfg.apiKey, cfg, maxTokens);
   }
-  return OpenAIAdapter.fetchText(text, systemPrompt, cfg.apiKey, cfg);
+  return OpenAIAdapter.fetchText(text, systemPrompt, cfg.apiKey, cfg, maxTokens);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  请求分发器 — 视觉（图片/截图）翻译
+//  使用第一个 enabled 且 visionEnabled 的模型；无视觉模型时给出明确报错
 // ═══════════════════════════════════════════════════════════════════════════
 
 /**
- * 视觉翻译统一入口
+ * 解析当前可用的视觉模型行（第一个 enabled 且 visionEnabled）。
+ * @param {Record<string, unknown>} stored
+ * @returns {ModelRow|null}
+ */
+function resolveVisionRow(stored) {
+  const models = ensureModelsArray(stored);
+  const vision = models.find((m) => m.enabled && m.visionEnabled);
+  if (vision) return vision;
+  // 兼容 v4.1 存量配置:没有任何模型显式开启"视觉"时,
+  // 回退到第一个已启用模型(旧行为),避免升级后截图翻译立即失效
+  return models.find((m) => m.enabled) || null;
+}
+
+/**
+ * 视觉翻译统一入口（截图 / 右键图片共用）。
  * @param {string} base64
  * @param {string} mimeType
  * @returns {Promise<string>}
  */
 async function fetchVision(base64, mimeType) {
-  const s = await chrome.storage.local.get(null);
-  const cfg = buildCfgForModel(s, {});
+  const s = await getSettings();
+  const visionRow = resolveVisionRow(s);
 
-  if (!cfg.hasRow) {
-    throw Object.assign(
-      new Error('没有可用的已启用模型，请前往设置页添加并启用至少一个模型。'),
-      { notConfigured: true }
-    );
+  if (!visionRow) {
+    throw new Error('尚未启用任何模型，请前往设置页启用至少一个模型');
   }
+
+  const cfg = buildCfgForModel(s, { targetModelId: visionRow.id });
 
   if (cfg.missingKey || !cfg.apiKey) {
     throw Object.assign(
@@ -498,56 +801,55 @@ async function fetchVision(base64, mimeType) {
   const systemPrompt = buildSystemPrompt('vision');
 
   if (cfg.protocol === 'anthropic') {
-    return ClaudeAdapter.fetchVision(base64, mimeType, systemPrompt, cfg.apiKey, cfg);
+    return ClaudeAdapter.fetchVision(base64, mimeType, systemPrompt, cfg.apiKey, cfg, maxTokensForType('vision'));
   }
-  return OpenAIAdapter.fetchVision(base64, mimeType, systemPrompt, cfg.apiKey, cfg);
+  return OpenAIAdapter.fetchVision(base64, mimeType, systemPrompt, cfg.apiKey, cfg, maxTokensForType('vision'));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  多引擎并发调度器
 //  对标沙拉查词：一次性向所有已启用模型发起并行请求，
-//  每个完成（或报错）后立即通过 chrome.tabs.sendMessage 单独推送回 content.js，
-//  绝不等齐所有模型。
+//  每个完成（或报错）后立即通过 chrome.tabs.sendMessage 单独推送回 content，
+//  绝不等齐所有模型；批次结束后补发 nya-multi-done 完成回执。
 // ═══════════════════════════════════════════════════════════════════════════
 
 /**
- * Promise 超时包装，避免单个挂死请求永久阻塞卡片
- * @template T
- * @param {Promise<T>} promise
- * @param {number} ms
- * @param {string} msg
- * @returns {Promise<T>}
- */
-function withTimeout(promise, ms, msg) {
-  return new Promise((resolve, reject) => {
-    const t = setTimeout(() => reject(new Error(msg)), ms);
-    promise.then(
-      (v) => { clearTimeout(t); resolve(v); },
-      (e) => { clearTimeout(t); reject(e); },
-    );
-  });
-}
-
-/**
- * 单模型执行单元：负责校验、发起 API、推送结果或错误。
+ * 单模型执行单元：负责校验、单词缓存命中检查、发起 API、推送结果或错误。
  * 任何异常都被自身吞下，不会冒泡导致 Promise.all 整体 reject。
- * @param {{ id:string, modelId:string, displayName:string, protocol:string, baseUrl:string, apiKey:string, enabled:boolean }} row
+ * @param {ModelRow} row
  * @param {Record<string, unknown>} stored
  * @param {{ text:string, requestId:string, tabId:number, pageTitle:string }} ctx
+ * @returns {Promise<boolean>} 成功返回 true，失败返回 false
  */
-async function runOneModel(row, stored, { text, requestId, tabId, pageTitle }) {
+async function runOneModel(row, stored, { text, requestId, tabId, pageTitle, type }) {
   const cfg   = buildCfgForModel(stored, { targetModelId: row.id });
   const label = cfg.label || row.displayName || row.modelId;
 
-  const fail = (err, notConfigured = false) => chrome.tabs.sendMessage(tabId, {
-    action:        'nya-multi-result',
-    requestId,
-    modelRowId:    row.id,
-    status:        'error',
-    error:         err?.message || String(err),
-    notConfigured: !!notConfigured || !!err?.notConfigured,
-    label,
-  }).catch(() => {});
+  const fail = (err, notConfigured = false) => {
+    chrome.tabs.sendMessage(tabId, {
+      action:        'nya-multi-result',
+      requestId,
+      modelRowId:    row.id,
+      status:        'error',
+      error:         friendlyError(err),
+      notConfigured: !!notConfigured || !!err?.notConfigured,
+      label,
+    }).catch(() => {});
+    return false;
+  };
+
+  const pushSuccess = (result, extra = {}) => {
+    chrome.tabs.sendMessage(tabId, {
+      action:     'nya-multi-result',
+      requestId,
+      modelRowId: row.id,
+      status:     'success',
+      result,
+      label,
+      ...extra,
+    }).catch(() => {});
+    return true;
+  };
 
   if (!cfg.hasRow)    return fail(new Error('模型配置丢失'), true);
   if (cfg.missingKey) return fail(new Error('该模型的 API Key 未配置，请前往设置页填写'), true);
@@ -557,46 +859,73 @@ async function runOneModel(row, stored, { text, requestId, tabId, pageTitle }) {
     const wordDetailEnabled = stored.wordDetailEnabled !== false;
     const trimmedText = text.trim();
     const isSingleWord = wordDetailEnabled && trimmedText.split(/\s+/).length === 1 && /^[a-zA-Z'-]+$/.test(trimmedText);
-    console.debug('[NyaTranslate] wordDetect:', { wordDetailEnabled, text: trimmedText, isSingleWord });
+    console.debug('[NyaTranslate] wordDetect:', { wordDetailEnabled, isSingleWord });
     const complexity = stored.exampleSentenceMode || 'simple';
-    const sysPrompt = isSingleWord
-      ? buildSystemPrompt(complexity === 'complex' ? 'dictionary-complex' : 'dictionary')
-      : buildSystemPrompt('combined');
-    const adapter   = cfg.protocol === 'anthropic' ? ClaudeAdapter : OpenAIAdapter;
-    const result    = await withTimeout(
-      adapter.fetchText(text, sysPrompt, cfg.apiKey, cfg),
-      30000,
-      `${label} 请求超时（30s）`,
-    );
+    const dictType = complexity === 'complex' ? 'dictionary-complex' : 'dictionary';
+    // per-request 意图:仅接受受控枚举,非法值回退 combined(兼容旧消息)
+    const intent = (type === 'translate' || type === 'explain' || type === 'combined') ? type : 'combined';
+    const sysPrompt = isSingleWord ? buildSystemPrompt(dictType) : buildSystemPrompt(intent);
+    const maxTokens = maxTokensForType(isSingleWord ? dictType : intent);
 
-    chrome.tabs.sendMessage(tabId, {
-      action:     'nya-multi-result',
-      requestId,
-      modelRowId: row.id,
-      status:     'success',
-      result,
-      label,
-    }).catch(() => {});
+    // 单词结果缓存：命中则直接推送成功（cached:true），不发 LLM 请求、不写历史
+    if (isSingleWord) {
+      const hit = await WordCache.get(trimmedText);
+      if (hit) {
+        // 日志不记录用户划选的单词原文(隐私)
+        console.debug('[NyaTranslate] 单词缓存命中:', { length: trimmedText.length, model: hit.model });
+        return pushSuccess(hit.result, { cached: true });
+      }
+    }
+
+    const adapter = cfg.protocol === 'anthropic' ? ClaudeAdapter : OpenAIAdapter;
+    const result  = await adapter.fetchText(text, sysPrompt, cfg.apiKey, cfg, maxTokens);
+
+    // 单词词典结果写入 LRU 缓存
+    if (isSingleWord) {
+      await WordCache.set(trimmedText, { result, model: label });
+    }
+
+    await pushSuccess(result);
 
     HistoryManager.save({
       originalText: text,
       result,
       model: label,
       pageTitle,
+      requestId,
     });
+
+    return true;
   } catch (err) {
-    fail(err);
+    return fail(err);
   }
 }
 
 /**
  * 多引擎并行入口：读取所有 enabled 模型，Promise.all 同时发车，
- * 每个 settle 立即通过 chrome.tabs.sendMessage 单独推送结果。
- * @param {{ text:string, requestId:string, tabId:number, pageTitle:string }} ctx
+ * 每个 settle 立即通过 chrome.tabs.sendMessage 单独推送结果；
+ * 批次结束后补发 nya-multi-done 完成回执（含成功/失败/跳过数量）。
+ * @param {{ text:string, requestId:string, tabId:number, pageTitle:string, onlyModelId?:string, type?:string }} ctx
  */
-async function dispatchMultiTranslate({ text, requestId, tabId, pageTitle }) {
-  const stored  = await chrome.storage.local.get(null);
-  const enabled = ensureModelsArray(stored).filter((m) => m.enabled);
+async function dispatchMultiTranslate({ text, requestId, tabId, pageTitle, onlyModelId, type }) {
+  const stored  = await getSettings();
+  const all     = ensureModelsArray(stored).filter((m) => m.enabled);
+  const onlyId  = String(onlyModelId || '').trim();
+
+  // 首选模型：提供 onlyModelId 时仅请求该模型，其余 enabled 模型计入 skipped
+  let enabled, skipped;
+  if (onlyId) {
+    enabled = all.filter((m) => m.id === onlyId);
+    skipped = all.length - enabled.length;
+    // 首选模型 id 失效（如设置页已删除该行）时回退为全部并发，保证有结果
+    if (enabled.length === 0) {
+      enabled = all;
+      skipped = 0;
+    }
+  } else {
+    enabled = all;
+    skipped = 0;
+  }
 
   if (enabled.length === 0) {
     chrome.tabs.sendMessage(tabId, {
@@ -607,17 +936,30 @@ async function dispatchMultiTranslate({ text, requestId, tabId, pageTitle }) {
     return;
   }
 
-  await Promise.all(enabled.map((row) => runOneModel(row, stored, {
-    text, requestId, tabId, pageTitle,
-  })));
+  let ok = 0;
+  let failCount = 0;
+  await Promise.all(enabled.map(async (row) => {
+    const success = await runOneModel(row, stored, { text, requestId, tabId, pageTitle, type });
+    if (success) ok += 1;
+    else failCount += 1;
+  }));
+
+  // 批级完成回执：SW 终止或消息丢失时 content 侧可据此兜底，避免卡片永久 loading
+  chrome.tabs.sendMessage(tabId, {
+    action:   'nya-multi-done',
+    requestId,
+    ok,
+    fail: failCount,
+    skipped,
+  }).catch(() => {});
 }
 
 /**
  * 单卡片重试入口：仅对一个 modelRowId 重新发起请求。
- * @param {{ text:string, requestId:string, modelRowId:string, tabId:number, pageTitle:string }} ctx
+ * @param {{ text:string, requestId:string, modelRowId:string, tabId:number, pageTitle:string, type?:string }} ctx
  */
-async function dispatchSingleTranslate({ text, requestId, modelRowId, tabId, pageTitle }) {
-  const stored = await chrome.storage.local.get(null);
+async function dispatchSingleTranslate({ text, requestId, modelRowId, tabId, pageTitle, type }) {
+  const stored = await getSettings();
   const row    = ensureModelsArray(stored).find((m) => m.id === modelRowId && m.enabled);
 
   if (!row) {
@@ -632,27 +974,58 @@ async function dispatchSingleTranslate({ text, requestId, modelRowId, tabId, pag
     return;
   }
 
-  await runOneModel(row, stored, { text, requestId, tabId, pageTitle });
+  await runOneModel(row, stored, { text, requestId, tabId, pageTitle, type });
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  HistoryManager — 本地翻译历史（chrome.storage.local）
+//  写入通过模块级 promise 队列串行化，消除并发 lost-update；
+//  同一原文 + 同一模型在 1 分钟内重复写入时去重（跳过）。
 // ═══════════════════════════════════════════════════════════════════════════
+
+/** 模块级串行队列：所有 save / clear 依次执行 */
+let historySaveQueue = Promise.resolve();
 
 class HistoryManager {
   static MAX_RECORDS = 200;
   static STORAGE_KEY = 'translationHistory';
+  /** 批次去重键集合(仅存于 SW 内存):键 = requestId|原文|模型,值 = 时间戳 */
+  static _recentKeys = new Map();
 
-  static async save({ originalText, result, model, pageTitle }) {
-    try {
-      let list = await HistoryManager._load();
+  static save({ originalText, result, model, pageTitle, requestId }) {
+    const task = historySaveQueue.then(async () => {
+      const stored = await chrome.storage.local.get(['historyEnabled', HistoryManager.STORAGE_KEY]);
+
+      // 历史开关：默认开启；关闭时直接跳过
+      if (stored.historyEnabled === false) return;
+
+      const list = Array.isArray(stored[HistoryManager.STORAGE_KEY])
+        ? stored[HistoryManager.STORAGE_KEY]
+        : [];
+
+      const normText  = (originalText || '').slice(0,500);
+      const normModel = (model || 'unknown');
+      const now       = Date.now();
+
+      // 按"批次 + 原文 + 模型"去重:同批次内的重试/重复回执不重复写,
+      // 而不同批次(用户 1 分钟内重译同一段)的正常记录不受影响
+      const batchKey = `${String(requestId || '')}|${normText}|${normModel}`;
+      const recent   = HistoryManager._recentKeys.get(batchKey) || 0;
+      if (recent && now - recent < 600000) return;
+      HistoryManager._recentKeys.set(batchKey, now);
+      // 清理过期键,防止集合无限增长
+      if (HistoryManager._recentKeys.size > 400) {
+        for (const [k, ts] of HistoryManager._recentKeys) {
+          if (now - ts >= 600000) HistoryManager._recentKeys.delete(k);
+        }
+      }
 
       const record = {
         id:           `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-        timestamp:    Date.now(),
-        originalText: (originalText || '').slice(0, 500),
+        timestamp:    now,
+        originalText: normText,
         result:       (result || '').slice(0, 2000),
-        model:        model || 'unknown',
+        model:        normModel,
         pageTitle:    (pageTitle || '').slice(0, 100),
       };
 
@@ -662,9 +1035,13 @@ class HistoryManager {
       }
 
       await chrome.storage.local.set({ [HistoryManager.STORAGE_KEY]: list });
-    } catch (err) {
+    });
+
+    // 队列吞掉单次失败，避免一个错误卡死后续写入
+    historySaveQueue = task.catch((err) => {
       console.warn('[NyaTranslate][History] 存储历史失败:', err);
-    }
+    });
+    return historySaveQueue;
   }
 
   static async getAll() {
@@ -672,7 +1049,13 @@ class HistoryManager {
   }
 
   static async clear() {
-    await chrome.storage.local.set({ [HistoryManager.STORAGE_KEY]: [] });
+    const task = historySaveQueue.then(() =>
+      chrome.storage.local.set({ [HistoryManager.STORAGE_KEY]: [] })
+    );
+    historySaveQueue = task.catch((err) => {
+      console.warn('[NyaTranslate][History] 清空历史失败:', err);
+    });
+    return historySaveQueue;
   }
 
   static async _load() {
@@ -680,16 +1063,83 @@ class HistoryManager {
     const list   = stored[HistoryManager.STORAGE_KEY];
     return Array.isArray(list) ? list : [];
   }
+
+  /** 单条删除:入队串行执行,返回删除后的完整列表 */
+  static async remove(id) {
+    const task = historySaveQueue.then(async () => {
+      const list = await HistoryManager._load();
+      const next = list.filter((r) => r && String(r.id) !== String(id || ''));
+      await chrome.storage.local.set({ [HistoryManager.STORAGE_KEY]: next });
+      return next;
+    });
+    historySaveQueue = task.catch((err) => {
+      console.warn('[NyaTranslate][History] 删除历史失败:', err);
+    });
+    return historySaveQueue;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  生词本 — storage key 'wordBook'
+//  数组 [{ id, word, result, ts }]，支持追加/去重、查询、按 id 删除、清空
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function wordbookGet() {
+  const stored = await chrome.storage.local.get(WORD_BOOK_KEY);
+  return Array.isArray(stored[WORD_BOOK_KEY]) ? stored[WORD_BOOK_KEY] : [];
+}
+
+/**
+ * 追加或去重更新生词（同单词忽略大小写视为重复，去重时保留原 id、刷新内容）。
+ * @param {{ word?:string, result?:string }} payload
+ * @returns {Promise<object[]>}
+ */
+async function wordbookAdd(payload) {
+  const word = String(payload?.word || '').trim();
+  if (!word) return wordbookGet();
+  const list = await wordbookGet();
+  const key  = word.toLowerCase();
+  const idx  = list.findIndex((it) => it && String(it.word || '').toLowerCase() === key);
+  const entry = {
+    id:     `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    word,
+    result: String(payload?.result || '').slice(0, 2000),
+    ts:     Date.now(),
+  };
+  if (idx >= 0) {
+    list[idx] = { ...entry, id: list[idx].id };
+  } else {
+    list.unshift(entry);
+  }
+  await chrome.storage.local.set({ [WORD_BOOK_KEY]: list });
+  return list;
+}
+
+/**
+ * @param {string} id
+ * @returns {Promise<object[]>}
+ */
+async function wordbookRemove(id) {
+  const list = (await wordbookGet()).filter((it) => it && it.id !== id);
+  await chrome.storage.local.set({ [WORD_BOOK_KEY]: list });
+  return list;
+}
+
+/**
+ * @returns {Promise<void>}
+ */
+async function wordbookClear() {
+  await chrome.storage.local.set({ [WORD_BOOK_KEY]: [] });
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  截图调度器
-//  background 直接拥有 captureVisibleTab 控制权，push dataUrl 给 content.js
+//  background 直接拥有 captureVisibleTab 控制权，push dataUrl 给 content
 //  消除 popup 关闭导致的时序问题
 // ═══════════════════════════════════════════════════════════════════════════
 
 /**
- * 对指定 tab 截取当前视口，并将 dataUrl push 给 content.js 的 ScreenshotOverlay
+ * 对指定 tab 截取当前视口，并将 dataUrl push 给 content 的 ScreenshotOverlay
  * @param {{ id: number, windowId: number }} tab
  */
 async function initiateScreenshot(tab) {
@@ -708,17 +1158,17 @@ async function initiateScreenshot(tab) {
     console.error('[NyaTranslate][Screenshot] captureVisibleTab 失败:', e);
     chrome.tabs.sendMessage(tab.id, {
       action: 'nya-vision-error',
-      error:  `截图失败：${e.message}`,
+      error:  friendlyError(e),
     }).catch(() => {});
     return;
   }
 
-  // 将截图 dataUrl 直接 push 给 content.js，由 ScreenshotOverlay 接管
+  // 将截图 dataUrl 直接 push 给 content，由 ScreenshotOverlay 接管
   chrome.tabs.sendMessage(tab.id, {
     action:  'nya-screenshot-start',
     dataUrl,
   }).catch((e) => {
-    console.error('[NyaTranslate][Screenshot] 无法发送消息到 content.js:', e);
+    console.error('[NyaTranslate][Screenshot] 无法发送消息到 content:', e);
   });
 }
 
@@ -740,28 +1190,44 @@ chrome.contextMenus.removeAll(() => {
     title:    '区域截图翻译 (NyaTranslate)',
     contexts: ['all'],
   });
+
+  // 翻译所选文字（划词被屏蔽 / iframe 等场景的兜底入口）
+  chrome.contextMenus.create({
+    id:       'nya-translate-selection',
+    title:    '翻译所选文字 (NyaTranslate)',
+    contexts: ['selection'],
+  });
 });
 
 // ─── 图片 URL → Base64 工具 ────────────────────────────────────────────────
 
+/**
+ * 图片 URL / data URL → Base64。超过 8MB 报错，拉取加 15s 超时。
+ * @param {string} srcUrl
+ * @returns {Promise<{ base64: string, mimeType: string }>}
+ */
 async function imageUrlToBase64(srcUrl) {
   if (srcUrl.startsWith('data:')) {
     const [header, data] = srcUrl.split(',');
     const mimeType = header.match(/data:([^;]+)/)?.[1] || 'image/png';
+    // base64 体积约为原始字节的 4/3，据此估算上限
+    if (data.length * 3 / 4 > IMAGE_MAX_BYTES) {
+      throw new Error('图片过大(>8MB),请缩小后重试');
+    }
     return { base64: data, mimeType };
   }
 
-  let response;
-  try {
-    response = await fetch(srcUrl);
-  } catch (e) {
-    throw new Error(`无法获取图片资源：${e.message}`);
-  }
+  const response = await fetchWithTimeout(srcUrl, { method: 'GET' }, IMAGE_FETCH_TIMEOUT_MS);
   if (!response.ok) throw new Error(`图片加载失败 (HTTP ${response.status})`);
 
   const blob     = await response.blob();
   const mimeType = blob.type || 'image/png';
-  const buffer   = await blob.arrayBuffer();
+
+  if (blob.size > IMAGE_MAX_BYTES) {
+    throw new Error('图片过大(>8MB),请缩小后重试');
+  }
+
+  const buffer = await blob.arrayBuffer();
 
   const bytes  = new Uint8Array(buffer);
   let   binary = '';
@@ -780,37 +1246,76 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     return;
   }
 
+  // ── 翻译所选文字：走多引擎 dispatch，结果逐模型推送到所在 tab ──
+  if (info.menuItemId === 'nya-translate-selection') {
+    let text = (info.selectionText || '').trim();
+    if (!text || !tab?.id) return;
+
+    // 与划词路径一致的 500 字符上限,超长拒绝并提示(防绕过额度保护)
+    if (text.length > 500) {
+      chrome.tabs.sendMessage(tab.id, {
+        action: 'nya-vision-error',
+        error:  '所选文本过长(>500 字符)，请分段划选。',
+      }).catch(() => {});
+      return;
+    }
+
+    // 读取偏好:右键路径同样遵守 preferredAction 的 per-request 意图
+    const s = await getSettings();
+    const pref = s.preferredAction;
+    const type = (pref === 'translate' || pref === 'explain' || pref === 'combined') ? pref : 'combined';
+
+    // 先告知 content 打开面板并采纳本批次 requestId，再按多引擎契约推送逐模型结果
+    const requestId = newRequestId();
+    chrome.tabs.sendMessage(tab.id, {
+      action:    'nya-translate-selection',
+      text,
+      requestId,
+    }).catch(() => {});
+
+    dispatchMultiTranslate({
+      text,
+      requestId,
+      type,
+      tabId:     tab.id,
+      pageTitle: tab.title || '',
+    });
+    return;
+  }
+
   // ── 图片取词 ──
   if (info.menuItemId === 'nya-translate-image') {
     if (!info.srcUrl) return;
 
     try {
       await chrome.tabs.sendMessage(tab.id, { action: 'nya-vision-loading' });
-    } catch (_) { /* content script 可能未就绪 */ }
+    } catch (_) { /* content 可能未就绪 */ }
 
     try {
       const { base64, mimeType } = await imageUrlToBase64(info.srcUrl);
       const result               = await fetchVision(base64, mimeType);
-      const s                    = await chrome.storage.local.get(null);
-      const cfg                  = buildCfgForModel(s, {});
+      const s                    = await getSettings();
+      const vRow                 = resolveVisionRow(s);
+      const label                = (vRow?.displayName || vRow?.modelId || '').trim() || '视觉';
 
-      chrome.tabs.sendMessage(tab.id, {
+      await chrome.tabs.sendMessage(tab.id, {
         action: 'nya-vision-result',
         result,
-        label:  cfg.label,
+        label,
       });
 
       HistoryManager.save({
         originalText: `[图片] ${info.srcUrl.slice(0, 80)}`,
         result,
-        model:     cfg.label || cfg.model || 'unknown',
+        model:     label,
         pageTitle: tab.title || '',
+        requestId: `vision-img-${Date.now()}`,
       });
     } catch (err) {
-      console.error('[NyaTranslate][Vision] 图片翻译失败:', err);
+      console.error('[NyaTranslate][Vision] 图片翻译失败:', sanitizeSk(err?.message || String(err)));
       chrome.tabs.sendMessage(tab.id, {
         action: 'nya-vision-error',
-        error:  err.message,
+        error:  friendlyError(err),
       }).catch(() => {});
     }
   }
@@ -827,24 +1332,35 @@ chrome.commands.onCommand.addListener(async (command) => {
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  消息路由
+//  v3 兼容消息路径（translate / explain / combined）已删除（仓库内无调用方）
 // ═══════════════════════════════════════════════════════════════════════════
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  // 来源校验：只接受来自本扩展上下文的消息（纵深防御）
+  if (sender.id !== chrome.runtime.id) return false;
+
   const { action } = message;
 
-  // ── 多引擎并行翻译（v4 主路径） ──────────────────────────────────────
+  // ── 多引擎并行翻译（v4 主路径；支持 onlyModelId 首选模型） ────────────
   if (action === 'nya-multi-translate') {
     if (!sender.tab) return false;
-    const { text, requestId } = message;
+    const { text, requestId, onlyModelId, type } = message;
     if (!text || typeof text !== 'string' || !text.trim()) {
       sendResponse({ success: false, error: '文本无效' });
       return true;
     }
+    // 与 content 侧划词限制一致:单条文本上限 500 字符(纵深防御)
+    if (text.trim().length > 500) {
+      sendResponse({ success: false, error: '文本过长(>500 字符)' });
+      return true;
+    }
     dispatchMultiTranslate({
-      text:      text.trim(),
-      requestId: String(requestId || ''),
-      tabId:     sender.tab.id,
-      pageTitle: sender.tab.title || '',
+      text:        text.trim(),
+      requestId:   String(requestId || ''),
+      onlyModelId: typeof onlyModelId === 'string' ? onlyModelId.trim() : '',
+      type:        typeof type === 'string' ? type : '',
+      tabId:       sender.tab.id,
+      pageTitle:   sender.tab.title || '',
     });
     sendResponse({ success: true, accepted: true });
     return false;
@@ -853,7 +1369,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   // ── 单卡片重试 ─────────────────────────────────────────────────────────
   if (action === 'nya-translate-single') {
     if (!sender.tab) return false;
-    const { text, requestId, modelRowId } = message;
+    const { text, requestId, modelRowId, type } = message;
     if (!text || typeof text !== 'string' || !text.trim() || !modelRowId) {
       sendResponse({ success: false, error: '参数无效' });
       return true;
@@ -862,6 +1378,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       text:       text.trim(),
       requestId:  String(requestId || ''),
       modelRowId: String(modelRowId),
+      type:       typeof type === 'string' ? type : '',
       tabId:      sender.tab.id,
       pageTitle:  sender.tab.title || '',
     });
@@ -869,53 +1386,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return false;
   }
 
-  // ── 文本翻译/解释（v3 兼容路径，popup 等仍在使用） ───────────────────
-  if (['translate', 'explain', 'combined'].includes(action)) {
-    if (!sender.tab) return false;
-
-    const { text, targetModelId, modelId } = message;
-
-    if (!text || typeof text !== 'string' || text.trim() === '') {
-      sendResponse({ success: false, error: '文本内容无效。' });
-      return true;
-    }
-
-    const tid = (typeof targetModelId === 'string' && targetModelId.trim())
-      ? targetModelId.trim()
-      : (typeof modelId === 'string' && modelId.trim() ? modelId.trim() : '');
-    const override = tid ? { targetModelId: tid } : {};
-
-    fetchLLM(text.trim(), action, override)
-      .then((result) => {
-        sendResponse({ success: true, result });
-
-        // 静默存储历史（跳过 explain，避免与 combined 重复）
-        if (action !== 'explain') {
-          chrome.storage.local.get(null, (s) => {
-            const cfg = buildCfgForModel(s || {}, override);
-            HistoryManager.save({
-              originalText: text.trim(),
-              result,
-              model:     cfg.label || cfg.model || 'unknown',
-              pageTitle: sender.tab?.title || '',
-            });
-          });
-        }
-      })
-      .catch((err) => {
-        console.error(`[NyaTranslate][LLM] 请求失败:`, err);
-        // notConfigured 标记透传给 content.js，用于区分"未配置"和"API 错误"
-        sendResponse({
-          success:        false,
-          error:          err.message,
-          notConfigured:  !!err.notConfigured,
-        });
-      });
-
-    return true;
-  }
-
-  // ── 框选完成：content.js 发来裁剪好的 Base64 ─────────────────────────
+  // ── 框选完成：content 发来裁剪好的 Base64 ─────────────────────────────
   if (action === 'nya-vision-crop') {
     if (!sender.tab) return false;
 
@@ -923,26 +1394,28 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     fetchVision(base64, mimeType)
       .then(async (result) => {
-        const s   = await chrome.storage.local.get(null);
-        const cfg = buildCfgForModel(s, {});
-        chrome.tabs.sendMessage(sender.tab.id, {
+        const s    = await getSettings();
+        const vRow = resolveVisionRow(s);
+        const label = (vRow?.displayName || vRow?.modelId || '').trim() || '视觉';
+        await chrome.tabs.sendMessage(sender.tab.id, {
           action: 'nya-vision-result',
           result,
-          label:  cfg.label,
+          label,
           x, y,
         });
         HistoryManager.save({
           originalText: '[截图区域]',
           result,
-          model:     cfg.label || cfg.model || 'unknown',
+          model:     label,
           pageTitle: sender.tab?.title || '',
+          requestId: `vision-crop-${Date.now()}`,
         });
       })
       .catch((err) => {
-        console.error('[NyaTranslate][Vision] 截图翻译失败:', err);
+        console.error('[NyaTranslate][Vision] 截图翻译失败:', sanitizeSk(err?.message || String(err)));
         chrome.tabs.sendMessage(sender.tab.id, {
           action: 'nya-vision-error',
-          error:  err.message,
+          error:  friendlyError(err),
         }).catch(() => {});
       });
 
@@ -954,18 +1427,55 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (action === 'nya-history-get') {
     HistoryManager.getAll()
       .then((list) => sendResponse({ success: true, list }))
-      .catch((err) => sendResponse({ success: false, error: err.message }));
+      .catch((err) => sendResponse({ success: false, error: friendlyError(err) }));
     return true;
   }
 
   if (action === 'nya-history-clear') {
     HistoryManager.clear()
       .then(() => sendResponse({ success: true }))
-      .catch((err) => sendResponse({ success: false, error: err.message }));
+      .catch((err) => sendResponse({ success: false, error: friendlyError(err) }));
+    return true;
+  }
+
+  // 单条删除:popup 历史 Tab 的删除按钮走此路径(串行队列防并发丢写)
+  if (action === 'nya-history-remove') {
+    HistoryManager.remove(String(message.id || ''))
+      .then((list) => sendResponse({ success: true, list }))
+      .catch((err) => sendResponse({ success: false, error: friendlyError(err) }));
+    return true;
+  }
+
+  // ── 生词本操作 ────────────────────────────────────────────────────────
+  if (action === 'nya-wordbook-add') {
+    wordbookAdd(message)
+      .then((list) => sendResponse({ success: true, list }))
+      .catch((err) => sendResponse({ success: false, error: friendlyError(err) }));
+    return true;
+  }
+
+  if (action === 'nya-wordbook-get') {
+    wordbookGet()
+      .then((list) => sendResponse({ success: true, list }))
+      .catch((err) => sendResponse({ success: false, error: friendlyError(err) }));
+    return true;
+  }
+
+  if (action === 'nya-wordbook-remove') {
+    wordbookRemove(String(message.id || ''))
+      .then((list) => sendResponse({ success: true, list }))
+      .catch((err) => sendResponse({ success: false, error: friendlyError(err) }));
+    return true;
+  }
+
+  if (action === 'nya-wordbook-clear') {
+    wordbookClear()
+      .then(() => sendResponse({ success: true }))
+      .catch((err) => sendResponse({ success: false, error: friendlyError(err) }));
     return true;
   }
 
   return false;
 });
 
-console.log('[NyaTranslate] Background Service Worker v4.1 已启动（多引擎并行 + 每模型独立鉴权）。');
+console.log('[NyaTranslate] Background Service Worker v4.2 已启动（多引擎并行 + 每模型独立鉴权 + 超时重试脱敏）。');

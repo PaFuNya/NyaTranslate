@@ -1,5 +1,22 @@
 /* Popup — 与 theme.css / html.nya-extension-ui 联动 */
 
+/* 本表面对齐 theme.css 的离散设计 token:--popup-* 直接引用 --radius-*/--text-*,
+   保持单一数值源(theme.css),仅别名化便于本文件阅读 */
+html.nya-extension-ui {
+  --popup-font-xs: var(--text-xs);
+  --popup-font-sm: var(--text-sm);
+  --popup-font-md: var(--text-md);
+  --popup-font-lg: var(--text-lg);
+
+  --popup-radius-s: var(--radius-xs);
+  --popup-radius-m: var(--radius-sm);
+  --popup-radius-l: var(--radius-md);
+  --popup-radius-xl: var(--radius-lg);
+
+  --popup-font: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --popup-font-mono: 'SF Mono', 'Cascadia Mono', Consolas, monospace;
+}
+
 *,
 *::before,
 *::after {
@@ -9,25 +26,39 @@
 }
 
 html.nya-extension-ui body {
-  font-family: var(--font, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif);
-  background: var(--md-sys-color-surface, #fff);
-  color: var(--text-primary, #111827);
+  font-family: var(--popup-font);
+  background: var(--md-sys-color-surface);
+  color: var(--md-sys-color-on-surface);
   width: 340px;
-  user-select: none;
 }
+
+/* 仅按钮与头部禁止文本选择，其余放开以便复制历史 / 配置文本 */
+.popup-header,
+button {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* 全局按钮键盘焦点环 */
+button:focus-visible {
+  outline: 2px solid var(--md-sys-color-primary);
+  outline-offset: 2px;
+}
+
+/* ── Header ─────────────────────────────────────────── */
 
 .popup-header {
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 14px 16px 12px;
-  border-bottom: 1px solid var(--border, var(--md-sys-color-outline-variant));
+  border-bottom: 1px solid var(--border);
 }
 
 .popup-logo {
   width: 32px;
   height: 32px;
-  border-radius: calc(var(--app-border-radius, 16px) * 0.55);
+  border-radius: var(--popup-radius-xl);
   background: var(--md-sys-color-primary);
   display: flex;
   align-items: center;
@@ -38,25 +69,28 @@ html.nya-extension-ui body {
 }
 
 .popup-title {
-  font-size: 14px;
+  font-size: var(--popup-font-md);
   font-weight: 700;
   line-height: 1.2;
 }
+
 .popup-subtitle {
-  font-size: 11px;
+  font-size: var(--popup-font-xs);
   color: var(--text-muted);
   margin-top: 1px;
 }
 
 .popup-version {
   margin-left: auto;
-  font-size: 10.5px;
+  font-size: var(--popup-font-xs);
   color: var(--text-muted);
-  font-family: var(--font-mono, 'SF Mono', monospace);
+  font-family: var(--popup-font-mono);
   background: var(--md-sys-color-surface-container-high);
   padding: 2px 7px;
-  border-radius: calc(var(--app-border-radius, 16px) * 0.3);
+  border-radius: var(--popup-radius-s);
 }
+
+/* ── Tab 栏 ─────────────────────────────────────────── */
 
 .tab-bar {
   display: flex;
@@ -65,30 +99,24 @@ html.nya-extension-ui body {
 
 .tab-btn {
   flex: 1;
-  padding: 9px 0;
-  font-size: 12.5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 0;
+  font-size: var(--popup-font-sm);
   font-weight: 500;
   color: var(--text-muted);
   background: none;
   border: none;
   border-bottom: 2px solid transparent;
   cursor: pointer;
-  transition: color 0.15s, border-color 0.15s;
   font-family: inherit;
-  position: relative;
+  transition: color 0.18s, border-color 0.18s;
 }
 
-.tab-btn::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: calc(var(--app-border-radius, 16px) * 0.45);
-  background: transparent;
-  transition: background 0.2s;
-}
-
-.tab-btn:hover::before {
-  background: color-mix(in srgb, var(--md-sys-color-on-surface) 6%, transparent);
+.tab-btn:hover {
+  color: var(--text-secondary);
 }
 
 .tab-btn--active {
@@ -103,48 +131,52 @@ html.nya-extension-ui body {
   display: block;
 }
 
-.status-section {
-  padding: 12px 16px 10px;
+/* ── 状态卡（协议状态 + 模型摘要合并为一张卡） ──────── */
+
+.status-card {
+  margin: 12px 16px 0;
+  padding: 12px;
+  background: var(--md-sys-color-surface-container-low);
+  border-radius: var(--popup-radius-l);
+  box-shadow: var(--md-sys-elevation-level1);
 }
 
-.status-label {
-  font-size: 10.5px;
+.status-card-title {
+  font-size: var(--popup-font-xs);
   font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
   color: var(--text-muted);
-  margin-bottom: 7px;
+  margin-bottom: 8px;
 }
 
 .status-grid {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 6px;
 }
 
 .status-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 7px 10px;
-  border-radius: calc(var(--app-border-radius, 16px) * 0.65);
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: var(--popup-radius-m);
   background: var(--md-sys-color-surface-container);
-  border: none;
-  box-shadow: var(--md-sys-elevation-level1);
 }
 
 .status-item-name {
   display: flex;
   align-items: center;
   gap: 7px;
-  font-size: 12px;
+  min-width: 0;
+  font-size: var(--popup-font-sm);
   font-weight: 500;
   color: var(--text-secondary);
 }
 
 .status-dot {
-  width: 7px;
-  height: 7px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   flex-shrink: 0;
 }
@@ -156,10 +188,14 @@ html.nya-extension-ui body {
 }
 
 .status-badge {
-  font-size: 11px;
+  max-width: 60%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: var(--popup-font-xs);
   font-weight: 500;
   padding: 2px 8px;
-  border-radius: calc(var(--app-border-radius, 16px) * 0.35);
+  border-radius: var(--popup-radius-s);
 }
 .status-badge--ok {
   color: var(--success);
@@ -169,131 +205,171 @@ html.nya-extension-ui body {
   color: var(--text-muted);
   background: var(--md-sys-color-surface-container-high);
 }
+/* 模型摘要徽标：等宽字体便于辨认模型名 */
+.status-badge--models {
+  font-family: var(--popup-font-mono);
+}
+
+/* ── 状态页其余元素 ─────────────────────────────────── */
 
 .shortcut-hint {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 7px 16px 4px;
-  font-size: 11.5px;
+  padding: 10px 16px 4px;
+  font-size: var(--popup-font-xs);
   color: var(--text-muted);
 }
 
 .shortcut-hint kbd {
-  font-family: var(--font-mono, 'SF Mono', monospace);
-  font-size: 10.5px;
+  font-family: var(--popup-font-mono);
+  font-size: var(--popup-font-xs);
   background: var(--md-sys-color-surface-container-high);
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--popup-radius-s);
   padding: 1px 5px;
   color: var(--text-secondary);
 }
 
 .warning-banner {
   display: none;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
-  margin: 0 16px 10px;
-  padding: 7px 11px;
+  margin: 10px 16px 0;
+  padding: 8px 11px;
   background: var(--warning-bg);
   border: 1px solid color-mix(in srgb, var(--warning) 35%, transparent);
-  border-radius: calc(var(--app-border-radius, 16px) * 0.65);
-  font-size: 11.5px;
+  border-radius: var(--popup-radius-m);
+  font-size: var(--popup-font-sm);
   color: var(--warning);
   line-height: 1.5;
 }
 .warning-banner.visible {
   display: flex;
 }
+.warning-banner svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
 
 .divider {
   height: 1px;
   background: var(--border);
-  margin: 2px 0;
+  margin: 12px 16px;
 }
 
 .popup-footer {
-  padding: 10px 16px;
   display: flex;
   gap: 8px;
+  padding: 0 16px;
 }
 
 .btn-settings {
   flex: 1;
+  position: relative;
+  overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 8px 0;
+  padding: 9px 0;
   background: var(--md-sys-color-secondary-container);
   color: var(--md-sys-color-on-secondary-container);
   border: 1px solid color-mix(in srgb, var(--md-sys-color-outline) 22%, transparent);
-  border-radius: calc(var(--app-border-radius, 16px) * 0.65);
-  font-size: 12.5px;
+  border-radius: var(--popup-radius-m);
+  font-size: var(--popup-font-md);
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
-  transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
+  transition: background 0.18s, box-shadow 0.18s;
   box-shadow: var(--md-sys-elevation-level1);
-  position: relative;
-  overflow: hidden;
 }
-
 .btn-settings::before {
   content: '';
   position: absolute;
   inset: 0;
   background: color-mix(in srgb, var(--md-sys-color-on-secondary-container) 8%, transparent);
   opacity: 0;
-  transition: opacity 0.2s;
+  transition: opacity 0.18s;
 }
-
 .btn-settings:hover::before {
   opacity: 1;
 }
+/* hover 只提升 elevation，不再位移 */
 .btn-settings:hover {
-  transform: translateY(-1px);
   box-shadow: var(--md-sys-elevation-level2);
 }
-.btn-settings:active {
-  transform: translateY(0);
+.btn-settings:active::before {
+  opacity: 0.16;
 }
 
 .usage-tip {
-  font-size: 11px;
+  font-size: var(--popup-font-xs);
   color: var(--text-muted);
   text-align: center;
-  padding: 0 16px 10px;
+  padding: 10px 16px 14px;
 }
 .usage-tip strong {
   color: var(--text-secondary);
+  font-weight: 600;
 }
 
-.history-pane {
-  display: flex;
-  flex-direction: column;
-  max-height: 360px;
-}
+/* ── 列表页公共（历史 / 生词本） ───────────────────── */
 
-.history-toolbar {
+.pane-toolbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 10px 16px 6px;
+  gap: 8px;
+  padding: 10px 16px 0;
 }
 
-.history-count {
-  font-size: 11px;
+.search-box {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 9px;
+  background: var(--md-sys-color-surface-container-high);
+  border: 1px solid transparent;
+  border-radius: var(--popup-radius-m);
   color: var(--text-muted);
+  transition: border-color 0.15s, color 0.15s;
+}
+.search-box:focus-within {
+  border-color: var(--accent);
+  color: var(--text-secondary);
+}
+
+.search-box input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: none;
+  outline: none;
+  font-family: inherit;
+  font-size: var(--popup-font-sm);
+  color: var(--text-primary);
+}
+.search-box input::placeholder {
+  color: var(--text-muted);
+}
+.search-box input:focus-visible {
+  outline: 2px solid var(--md-sys-color-primary);
+  outline-offset: 0;
 }
 
 .btn-clear {
-  font-size: 11px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 9px;
+  font-size: var(--popup-font-sm);
   color: var(--danger);
   background: transparent;
   border: 1px solid color-mix(in srgb, var(--danger) 35%, transparent);
-  border-radius: calc(var(--app-border-radius, 16px) * 0.4);
-  padding: 3px 8px;
+  border-radius: var(--popup-radius-m);
   cursor: pointer;
   font-family: inherit;
   transition: background 0.15s;
@@ -302,88 +378,178 @@ html.nya-extension-ui body {
   background: var(--danger-bg);
 }
 
-.history-list {
+.pane-count {
+  font-size: var(--popup-font-xs);
+  color: var(--text-muted);
+  padding: 6px 16px 2px;
+}
+/* 生词本工具栏内嵌的计数 */
+.pane-toolbar .pane-count {
   flex: 1;
-  overflow-y: auto;
-  padding: 0 10px 10px;
+  padding: 0;
 }
 
-.history-empty {
+.list {
+  max-height: 340px;
+  overflow-y: auto;
+  padding: 6px 10px 10px;
+}
+
+.list::-webkit-scrollbar {
+  width: 6px;
+}
+.list::-webkit-scrollbar-track {
+  background: transparent;
+}
+.list::-webkit-scrollbar-thumb {
+  background: var(--md-sys-color-outline-variant);
+  border-radius: var(--popup-radius-s);
+}
+
+.empty {
   padding: 30px 16px;
   text-align: center;
+  font-size: var(--popup-font-sm);
   color: var(--text-muted);
-  font-size: 12.5px;
+}
+.empty-hint {
+  margin-top: 4px;
+  font-size: var(--popup-font-xs);
+  color: var(--text-muted);
 }
 
-.history-item {
-  padding: 9px 10px;
-  border-radius: calc(var(--app-border-radius, 16px) * 0.55);
-  border: none;
-  background: var(--md-sys-color-surface-container-low);
+/* ── 列表条目（历史 / 生词本共用） ─────────────────── */
+
+.item {
+  padding: 8px 10px;
   margin-bottom: 6px;
-  cursor: default;
-  transition: background 0.12s;
+  background: var(--md-sys-color-surface-container-low);
+  border-radius: var(--popup-radius-m);
   box-shadow: var(--md-sys-elevation-level1);
-}
-.history-item:hover {
-  background: var(--md-sys-color-surface-container);
+  transition: background 0.15s, box-shadow 0.15s;
 }
 
-.history-item-meta {
+.item--clickable {
+  cursor: pointer;
+}
+.item--clickable:hover {
+  background: var(--md-sys-color-surface-container);
+  box-shadow: var(--md-sys-elevation-level2);
+}
+
+/* 生词复制成功后的瞬时反馈 */
+.item--copied {
+  background: var(--success-bg);
+}
+
+.item-meta {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
   margin-bottom: 4px;
 }
 
-.history-model-tag {
-  font-size: 10px;
+.item-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.item-tag {
+  max-width: 150px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: var(--popup-font-xs);
   font-weight: 600;
   color: var(--accent);
   background: var(--accent-soft);
   padding: 1px 6px;
-  border-radius: 4px;
+  border-radius: var(--popup-radius-s);
 }
 
-.history-time {
-  font-size: 10px;
+.item-time {
+  font-size: var(--popup-font-xs);
   color: var(--text-muted);
 }
 
-.history-original {
-  font-size: 11.5px;
+.item-main {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: var(--popup-font-sm);
   color: var(--text-secondary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
-.history-result {
-  font-size: 11px;
-  color: var(--text-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.item-sub {
   margin-top: 2px;
-}
-
-.history-page {
-  font-size: 10px;
-  color: var(--text-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  margin-top: 2px;
-  font-style: italic;
+  font-size: var(--popup-font-xs);
+  color: var(--text-muted);
 }
 
-.history-list::-webkit-scrollbar {
-  width: 4px;
+.item-page {
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: var(--popup-font-xs);
+  color: var(--text-muted);
 }
-.history-list::-webkit-scrollbar-track {
+
+.wordbook-word {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* ── 图标按钮（复制 / 删除） ───────────────────────── */
+
+.btn-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
   background: transparent;
+  border-radius: var(--popup-radius-s);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s, color 0.15s;
 }
-.history-list::-webkit-scrollbar-thumb {
-  background: var(--md-sys-color-outline-variant);
-  border-radius: 2px;
+
+.btn-icon:hover {
+  background: color-mix(in srgb, var(--md-sys-color-on-surface) 6%, transparent);
+  color: var(--text-secondary);
+}
+
+.btn-icon--danger {
+  color: var(--danger);
+}
+
+.btn-icon--danger:hover {
+  color: var(--danger);
+  background: var(--danger-bg);
+}
+
+.btn-icon--copied {
+  color: var(--success);
+}
+
+/* ── 减少动态偏好 ──────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
 }

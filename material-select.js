@@ -50,7 +50,7 @@
       this._labelSpan.className = 'nya-ms__label';
       const icon = document.createElement('span');
       icon.className = 'nya-ms__trigger-icon';
-      icon.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>';
+      icon.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>';
 
       this._trigger.appendChild(this._labelSpan);
       this._trigger.appendChild(icon);

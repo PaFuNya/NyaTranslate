@@ -23,24 +23,36 @@ jobs:
         id: version
         run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
 
-      - name: 构建扩展包喵~
+      - name: 构建扩展包
         run: |
           # 创建发布目录
           mkdir -p release
-          
+
           # 打包扩展（排除不必要的文件）
           zip -r "release/NyaTranslate-${{ steps.version.outputs.VERSION }}.zip" \
             manifest.json \
             background.js \
-            content.js \
+            appearance.js \
+            material-select.js \
+            content_utils.js \
+            content_drag.js \
+            content_panel.js \
+            content_screenshot.js \
+            content_main.js \
             popup.html \
             popup.js \
+            popup.css \
             options.html \
             options.js \
             options.css \
+            theme.css \
             style.css \
             icons/ \
-            -x "*.md" \
+            PRIVACY.md \
+            -x "README.md" \
+            -x "README_EN.md" \
+            -x "CHANGELOG.md" \
+            -x "RELEASE_NOTES.md" \
             -x ".github/*" \
             -x "generate-icons.js"
 

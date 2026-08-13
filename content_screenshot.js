@@ -67,7 +67,7 @@ class VisionResultPanel {
 
     const logo = document.createElement('div');
     logo.className = `${NS}-panel-logo`;
-    logo.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
+    logo.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 8 6l2.5 2.5L12 4l1.5 4.5L16 6l-4-4z"/><path d="M12 3v3"/><path d="M12 14c-4 0-6.5 1.5-6.5 4s2 3.5 6.5 3.5 6.5-1 6.5-3.5-2.5-4-6.5-4z"/><circle cx="10" cy="15" r="0.7" fill="currentColor"/><circle cx="14" cy="15" r="0.7" fill="currentColor"/><path d="M12 16.5c1.2 0 2 .6 2 1.5h-4c0-.9.8-1.5 2-1.5z"/></svg>`;
 
     const title = document.createElement('span');
     title.className   = `${NS}-panel-title`;
@@ -107,14 +107,14 @@ class VisionResultPanel {
 
     const copyBtn = document.createElement('button');
     copyBtn.className   = `${NS}-btn ${NS}-btn--ghost`;
-    copyBtn.textContent = '📋 复制';
+    copyBtn.textContent = '复制';
     copyBtn.addEventListener('click', () => {
       navigator.clipboard.writeText(result).then(() => {
-        copyBtn.textContent = '✅ 已复制';
-        setTimeout(() => { copyBtn.textContent = '📋 复制'; }, 1500);
+        copyBtn.textContent = '已复制';
+        setTimeout(() => { copyBtn.textContent = '复制'; }, 1500);
       }).catch(() => {
-        copyBtn.textContent = '❌ 失败';
-        setTimeout(() => { copyBtn.textContent = '📋 复制'; }, 1500);
+        copyBtn.textContent = '复制失败';
+        setTimeout(() => { copyBtn.textContent = '复制'; }, 1500);
       });
     });
 
@@ -131,20 +131,27 @@ class VisionResultPanel {
     this._drag = new DragController(panel, header, () => {});
   }
 
-  /** 展示错误信息（5 秒后自动关闭） */
+  /** 展示错误信息（5 秒后自动关闭）;无现有面板时也新建一个,保证失败必有反馈 */
   showError(msg) {
-    if (this._el) {
-      const errDiv = document.createElement('div');
-      errDiv.className   = `${NS}-error`;
-      errDiv.style.cssText = 'padding:12px 14px;font-size:13px;';
-      errDiv.textContent   = `⚠️ ${msg}`;
-
-      this._el.innerHTML = '';
-      this._el.appendChild(errDiv);
-      requestAnimationFrame(() => this._el?.classList.add(`${NS}-panel--visible`));
-
-      setTimeout(() => this._close(), 5000);
+    if (!this._el) {
+      // 截图翻译最常见的失败(未启用视觉模型)在用户框选松手后才到达,
+      // 此刻无任何面板,若静默返回用户会以为扩展故障——新建错误面板展示
+      const panel = this._createBase();
+      panel.style.cssText += ';position:fixed;right:24px;top:80px;width:320px;';
+      this._applyAppearance(panel);
+      this._mount(panel, null);
     }
+
+    const errDiv = document.createElement('div');
+    errDiv.className   = `${NS}-error`;
+    errDiv.style.cssText = 'padding:12px 14px;font-size:13px;';
+    errDiv.textContent   = msg;
+
+    this._el.innerHTML = '';
+    this._el.appendChild(errDiv);
+    requestAnimationFrame(() => this._el?.classList.add(`${NS}-panel--visible`));
+
+    setTimeout(() => this._close(), 5000);
   }
 
   _createBase() {
